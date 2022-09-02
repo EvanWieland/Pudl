@@ -1,3 +1,4 @@
 #!/bin/bash
 
-./build/pudl "$@"
+#./build/pudl "$@"
+./debug/pudl "$@"

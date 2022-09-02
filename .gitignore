@@ -53,6 +53,7 @@ dist/
 .cmake/
 compiler.cbp
 gen/
+debug/
 
 # IDEs config
 .vscode/

@@ -13,7 +13,6 @@ include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_include_directories(${PROJECT_NAME} PUBLIC src)
@@ -35,15 +34,18 @@ set(TARGET_AMDGPU AMDGPUCodeGen AMDGPUAsmParser AMDGPUDesc AMDGPUUtils AMDGPUInf
 set(TARGET_X86 X86CodeGen X86AsmParser X86Desc X86Info)
 set(TARGET_AArch64 AArch64CodeGen AArch64AsmParser AArch64Desc AArch64Utils AArch64Info)
 set(TARGET_AVR AVRCodeGen AVRAsmParser AVRDesc AVRInfo)
+set(TARGET_VE VECodeGen VEAsmParser VEDesc VEInfo)
+set(TARGET_M68k M68kCodeGen M68kAsmParser M68kDesc M68kInfo)
 
-set(TARGETS_TO_BUILD "WebAssembly" "XCore" "SystemZ" "Sparc" "RISCV" "PowerPC" "NVPTX" "MSP430" "Mips" "Lanai" "Hexagon" "BPF" "ARM" "AMDGPU" "X86" "AArch64" "AVR")
+set(TARGETS_TO_BUILD "WebAssembly" "XCore" "SystemZ" "Sparc" "RISCV" "PowerPC" "NVPTX" "MSP430" "Mips" "Lanai" "Hexagon" "BPF" "ARM" "AMDGPU" "X86" "AArch64" "AVR" "VE" "M68k")
 
 set(LLVM_TARGETS)
 foreach (target IN ITEMS ${TARGETS_TO_BUILD})
     list(APPEND LLVM_TARGETS "${TARGET_${target}}")
-endforeach(target)
+endforeach (target)
 
-llvm_map_components_to_libnames(llvm_libs
+llvm_map_components_to_libnames(
+        llvm_libs
         TextAPI
         OrcJIT
         JITLink
@@ -102,6 +104,6 @@ llvm_map_components_to_libnames(llvm_libs
         BitstreamReader
         Support
         Demangle
-        )
+)
 
 target_link_libraries(${PROJECT_NAME} ${llvm_libs})
