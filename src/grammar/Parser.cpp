@@ -16,7 +16,6 @@ int Pudl::Parser::GetTokPrecedence() {
     return TokPrec;
 }
 
-/// LogError* - These are little helper functions for error handling.
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::LogError(const char *Str) {
     fprintf(stderr, "Error: %s\n", Str);
     return nullptr;
@@ -27,14 +26,12 @@ std::unique_ptr<Pudl::AST::PrototypeAST> Pudl::Parser::LogErrorP(const char *Str
     return nullptr;
 }
 
-/// numberexpr ::= number
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseNumberExpr() {
     auto Result = std::make_unique<Pudl::AST::NumberExprAST>(Pudl::Lexer::NumVal);
     getNextToken(); // consume the number
     return std::move(Result);
 }
 
-/// parenexpr ::= '(' expression ')'
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseParenExpr() {
     getNextToken(); // eat (.
     auto V = ParseExpression();
@@ -47,9 +44,6 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseParenExpr() {
     return V;
 }
 
-/// identifierexpr
-///   ::= identifier
-///   ::= identifier '(' expression* ')'
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseIdentifierExpr() {
     std::string IdName = Pudl::Lexer::IdentifierStr;
 
@@ -83,7 +77,6 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseIdentifierExpr() {
     return std::make_unique<Pudl::AST::CallExprAST>(IdName, std::move(Args));
 }
 
-/// ifexpr ::= 'if' expression 'then' expression 'else' expression
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseIfExpr() {
     getNextToken(); // eat the if.
 
@@ -113,7 +106,6 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseIfExpr() {
                                                   std::move(Else));
 }
 
-/// forexpr ::= 'for' identifier '=' expr ',' expr (',' expr)? 'in' expression
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseForExpr() {
     getNextToken(); // eat the for.
 
@@ -159,16 +151,22 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseForExpr() {
                                                    std::move(Step), std::move(Body));
 }
 
-/// varexpr ::= 'var' identifier ('=' expression)?
-//                    (',' identifier ('=' expression)?)* 'in' expression
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseVarExpr() {
     getNextToken(); // eat the var.
 
-    std::vector<std::pair<std::string, std::unique_ptr<Pudl::AST::ExprAST>>> VarNames;
+    // Data type or auto is required.
+    if (Pudl::Parser::CurTok != Pudl::Lexer::tok_type)
+        return LogError("Expected data type after var");
+
+    std::string Type = Pudl::Lexer::IdentifierStr;
+
+    getNextToken(); // eat the type.
+
+    std::vector<std::tuple<std::string, std::string, std::unique_ptr<Pudl::AST::ExprAST>>> VarNames;
 
     // At least one variable name is required.
     if (Pudl::Parser::CurTok != Pudl::Lexer::tok_identifier)
-        return LogError("expected identifier after var");
+        return LogError("Expected identifier after var");
 
     while (true) {
         std::string Name = Pudl::Lexer::IdentifierStr;
@@ -184,7 +182,7 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseVarExpr() {
                 return nullptr;
         }
 
-        VarNames.push_back(std::make_pair(Name, std::move(Init)));
+        VarNames.push_back(std::make_tuple(Name, Type, std::move(Init)));
 
         // End of var list, exit loop.
         if (Pudl::Parser::CurTok != ',')
@@ -207,13 +205,6 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseVarExpr() {
     return std::make_unique<Pudl::AST::VarExprAST>(std::move(VarNames), std::move(Body));
 }
 
-/// primary
-///   ::= identifierexpr
-///   ::= numberexpr
-///   ::= parenexpr
-///   ::= ifexpr
-///   ::= forexpr
-///   ::= varexpr
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParsePrimary() {
     switch (Pudl::Parser::CurTok) {
         default:
@@ -233,9 +224,6 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParsePrimary() {
     }
 }
 
-/// unary
-///   ::= primary
-///   ::= '!' unary
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseUnary() {
     // If the current token is not an operator, it must be a primary expr.
     if (!isascii(Pudl::Parser::CurTok) || Pudl::Parser::CurTok == '(' || Pudl::Parser::CurTok == ',')
@@ -249,8 +237,6 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseUnary() {
     return nullptr;
 }
 
-/// binoprhs
-///   ::= ('+' unary)*
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseBinOpRHS(int ExprPrec,
                                                                 std::unique_ptr<Pudl::AST::ExprAST> LHS) {
     // If this is a binop, find its precedence.
@@ -285,8 +271,6 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseBinOpRHS(int ExprPrec,
     }
 }
 
-/// expression
-///   ::= unary binoprhs
 std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseExpression() {
     auto LHS = ParseUnary();
     if (!LHS)
@@ -295,10 +279,6 @@ std::unique_ptr<Pudl::AST::ExprAST> Pudl::Parser::ParseExpression() {
     return ParseBinOpRHS(0, std::move(LHS));
 }
 
-/// prototype
-///   ::= id '(' id* ')'
-///   ::= binary LETTER number? (id, id)
-///   ::= unary LETTER (id)
 std::unique_ptr<Pudl::AST::PrototypeAST> Pudl::Parser::ParsePrototype() {
     std::string FnName;
 
@@ -361,7 +341,6 @@ std::unique_ptr<Pudl::AST::PrototypeAST> Pudl::Parser::ParsePrototype() {
                                                      BinaryPrecedence);
 }
 
-/// definition ::= 'def' prototype expression
 std::unique_ptr<Pudl::AST::FunctionAST> Pudl::Parser::ParseDefinition() {
     getNextToken(); // eat def.
     auto Proto = ParsePrototype();
@@ -373,7 +352,6 @@ std::unique_ptr<Pudl::AST::FunctionAST> Pudl::Parser::ParseDefinition() {
     return nullptr;
 }
 
-/// toplevelexpr ::= expression
 std::unique_ptr<Pudl::AST::FunctionAST> Pudl::Parser::ParseTopLevelExpr() {
     if (auto E = ParseExpression()) {
         // Make an anonymous proto.
@@ -384,7 +362,6 @@ std::unique_ptr<Pudl::AST::FunctionAST> Pudl::Parser::ParseTopLevelExpr() {
     return nullptr;
 }
 
-/// external ::= 'extern' prototype
 std::unique_ptr<Pudl::AST::PrototypeAST> Pudl::Parser::ParseExtern() {
     getNextToken(); // eat extern.
     return ParsePrototype();

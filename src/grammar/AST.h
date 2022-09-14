@@ -8,6 +8,7 @@
 #include "llvm/IR/Function.h"
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace Pudl::AST {
 
@@ -108,20 +109,14 @@ namespace Pudl::AST {
 
     /// VarExprAST - Expression class for var/in
     class VarExprAST : public ExprAST {
-        std::vector<std::pair<std::string, std::unique_ptr<ExprAST>>>
-                VarNames;
+        std::vector<std::tuple<std::string, std::string, std::unique_ptr<ExprAST>>> VarNames;
         std::unique_ptr<ExprAST> Body;
 
     public:
         VarExprAST(
-                std::vector<std::pair<std::string, std::unique_ptr<ExprAST>>
-
-                > VarNames,
+                std::vector<std::tuple<std::string, std::string, std::unique_ptr<ExprAST>>> VarNames,
                 std::unique_ptr<ExprAST> Body
-        )
-                :
-
-                VarNames(std::move(VarNames)), Body(std::move(Body)) {}
+        ) : VarNames(std::move(VarNames)), Body(std::move(Body)) {}
 
         llvm::Value *codegen() override;
     };

@@ -40,7 +40,6 @@ namespace Pudl {
         static std::unique_ptr<Pudl::AST::FunctionAST> ParseTopLevelExpr();
 
     private:
-
         /// GetTokPrecedence - Get the precedence of the pending binary operator token.
         static int GetTokPrecedence();
 
@@ -94,6 +93,5 @@ namespace Pudl {
         ///   ::= binary LETTER number? (id, id)
         ///   ::= unary LETTER (id)
         static std::unique_ptr<Pudl::AST::PrototypeAST> ParsePrototype();
-
     };
 } // namespace Pudl

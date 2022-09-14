@@ -39,16 +39,19 @@ namespace Pudl {
             tok_unary = -12,
 
             // var definition
-            tok_var = -13
+            tok_var = -13,
+
+            // types
+            tok_type = -17
         };
 
         /// getTok - Return the next token from standard input.
         static int getTok();
 
-        static double NumVal;
-        static std::string IdentifierStr;
-        // Filled in if tok_identifier
         // Filled in if tok_number
+        static double NumVal;
+        // Filled in if tok_identifier
+        static std::string IdentifierStr;
 
     };
 } // namespace Pudl

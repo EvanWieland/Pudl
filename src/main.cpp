@@ -9,16 +9,12 @@
 #include "Driver.h"
 #include "lib/IO.h"
 
-using namespace llvm;
-using namespace llvm::orc;
-using namespace Pudl;
-
 //===----------------------------------------------------------------------===//
 // Main driver code.
 //===----------------------------------------------------------------------===//
 
 int main(int argc, char **argv) {
-    CLIManager cli(argc, argv);
+    Pudl::CLIManager cli(argc, argv);
 
     if (cli.hasOption("--help") || cli.hasOption("-h")) {
         std::cerr << "Usage: compiler <file> [--help,-h] [-p --print-ir]" << std::endl;
@@ -31,7 +27,7 @@ int main(int argc, char **argv) {
     }
 
     if (argc > 1)
-        FileStreamer::OpenFileStream(argv[1]);
+        Pudl::FileStreamer::OpenFileStream(argv[1]);
 
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
@@ -39,36 +35,36 @@ int main(int argc, char **argv) {
 
     // Install standard binary operators.
     // 1 is lowest precedence.
-    Parser::BinopPrecedence['='] = 2;
-    Parser::BinopPrecedence['<'] = 10;
-    Parser::BinopPrecedence['+'] = 20;
-    Parser::BinopPrecedence['-'] = 20;
-    Parser::BinopPrecedence['*'] = 40; // highest.
+    Pudl::Parser::BinopPrecedence['='] = 2;
+    Pudl::Parser::BinopPrecedence['<'] = 10;
+    Pudl::Parser::BinopPrecedence['+'] = 20;
+    Pudl::Parser::BinopPrecedence['-'] = 20;
+    Pudl::Parser::BinopPrecedence['*'] = 40; // highest.
 
-    if (FileStreamer::InREPL())
+    if (Pudl::FileStreamer::InREPL())
         fprintf(stderr, "ready> ");
 
     // Prime the first token.
-    Parser::getNextToken();
+    Pudl::Parser::getNextToken();
 
-    CodeGen::TheJIT = CodeGen::ExitOnErr(PudlJIT::Create());
+    Pudl::CodeGen::TheJIT = Pudl::CodeGen::ExitOnErr(Pudl::PudlJIT::Create());
 
-    CodeGen::TheJIT->registerSymbols(
+    Pudl::CodeGen::TheJIT->registerSymbols(
             [&](llvm::orc::MangleAndInterner interner) {
                 llvm::orc::SymbolMap symbolMap;
-                symbolMap[interner("printd")] = llvm::JITEvaluatedSymbol::fromPointer(Lib::IO::printd);
-                symbolMap[interner("putchard")] = llvm::JITEvaluatedSymbol::fromPointer(Lib::IO::putchard);
+                symbolMap[interner("printd")] = llvm::JITEvaluatedSymbol::fromPointer(Pudl::Lib::IO::printd);
+                symbolMap[interner("putchard")] = llvm::JITEvaluatedSymbol::fromPointer(Pudl::Lib::IO::putchard);
                 return symbolMap;
             }
     );
 
-    Driver::InitializeModuleAndPassManager();
+    Pudl::Driver::InitializeModuleAndPassManager();
 
     // Run the main "interpreter loop" now.
-    Driver::MainLoop();
+    Pudl::Driver::MainLoop();
 
-    if (!FileStreamer::InREPL())
-        FileStreamer::CloseFileStream();
+    if (!Pudl::FileStreamer::InREPL())
+        Pudl::FileStreamer::CloseFileStream();
 
     return 0;
 }

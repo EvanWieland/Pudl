@@ -7,6 +7,8 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <tuple>
+#include <llvm-14/llvm/IR/Type.h>
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
@@ -21,7 +23,10 @@
 namespace Pudl {
     class CodeGen {
     public:
+        // Log a value error
         static llvm::Value *LogErrorV(const char *);
+        // Log a type error
+        static llvm::Type *LogErrorT(const char *);
 
         static llvm::Function *getFunction(std::string);
 
@@ -37,5 +42,7 @@ namespace Pudl {
         static llvm::ExitOnError ExitOnErr;
         static std::map<std::string, std::unique_ptr<Pudl::AST::PrototypeAST>> FunctionProtos;
         static std::map<std::string, llvm::AllocaInst *> NamedValues;
+
+        static Type *getType(const std::string &type);
     };
 } // namespace Pudl

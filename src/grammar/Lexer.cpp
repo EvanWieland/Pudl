@@ -39,6 +39,10 @@ int Pudl::Lexer::getTok() {
             return tok_unary;
         if (IdentifierStr == "var")
             return tok_var;
+        if (IdentifierStr == "auto" ||
+            IdentifierStr == "float" ||
+            IdentifierStr == "int")
+            return tok_type;
         return tok_identifier;
     }
 

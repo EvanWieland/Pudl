@@ -1,4 +1,6 @@
 #include "CodeGen.h"
+#include "AST.h"
+
 
 std::unique_ptr<llvm::LLVMContext> Pudl::CodeGen::TheContext;
 std::unique_ptr<llvm::Module> Pudl::CodeGen::TheModule;
@@ -12,6 +14,22 @@ llvm::ExitOnError Pudl::CodeGen::ExitOnErr;
 llvm::Value *Pudl::CodeGen::LogErrorV(const char *Str) {
     Pudl::Parser::LogError(Str);
     return nullptr;
+}
+
+llvm::Type *Pudl::CodeGen::LogErrorT(const char *Str) {
+    Pudl::Parser::LogError(Str);
+    return nullptr;
+}
+
+llvm::Type *Pudl::CodeGen::getType(const std::string &type) {
+    // TODO: Move supported types to separate file
+    if (type == "int") {
+        return llvm::Type::getInt32Ty(*TheContext);
+    } else if (type == "float") {
+        return llvm::Type::getDoubleTy(*TheContext);
+    } else {
+        return CodeGen::LogErrorT(("Unknown type: " + type).c_str());
+    }
 }
 
 llvm::Function *Pudl::CodeGen::getFunction(std::string Name) {
@@ -295,8 +313,9 @@ llvm::Value *Pudl::AST::VarExprAST::codegen() {
 
     // Register all variables and emit their initializer.
     for (unsigned i = 0, e = VarNames.size(); i != e; ++i) {
-        const std::string &VarName = VarNames[i].first;
-        ExprAST *Init = VarNames[i].second.get();
+        const std::string &VarName = std::get<0>(VarNames[i]);
+        llvm::Type * Type = CodeGen::getType(std::get<1>(VarNames[i]));
+        ExprAST *Init = std::get<2>(VarNames[i]).get();
 
         // Emit the initializer before adding the variable to scope, this prevents
         // the initializer from referencing the variable itself, and permits stuff
@@ -308,8 +327,10 @@ llvm::Value *Pudl::AST::VarExprAST::codegen() {
             InitVal = Init->codegen();
             if (!InitVal)
                 return nullptr;
-        } else { // If not specified, use 0.0.
-            InitVal = ConstantFP::get(*CodeGen::TheContext, APFloat(0.0));
+        } else {
+            return CodeGen::LogErrorV(("Uninitialized variable " + VarName).c_str());
+            // If not specified, use 0.0.
+            // InitVal = ConstantFP::get(*CodeGen::TheContext, APFloat(0.0));
         }
 
         AllocaInst *Alloca = CodeGen::CreateEntryBlockAlloca(TheFunction, VarName);
@@ -330,7 +351,7 @@ llvm::Value *Pudl::AST::VarExprAST::codegen() {
 
     // Pop all our variables from scope.
     for (unsigned i = 0, e = VarNames.size(); i != e; ++i)
-        CodeGen::NamedValues[VarNames[i].first] = OldBindings[i];
+        CodeGen::NamedValues[std::get<0>(VarNames[i])] = OldBindings[i];
 
     // Return the body computation.
     return BodyVal;
