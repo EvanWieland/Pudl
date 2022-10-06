@@ -53,7 +53,7 @@ entry:
 
 ## Getting started
 
-### Docker
+### Docker (Easy)
 
 #### 1. Clone project
 ```sh
@@ -94,7 +94,9 @@ Executing -----------------------
 10
 ```
 
-### 1. Install dependencies
+### Manual (Prolly Hard)
+
+#### 1. Install dependencies
 
 ```sh
 sudo apt-get update && \
@@ -115,16 +117,21 @@ chmod +x llvm.sh && \
 sudo ./llvm.sh 14
 ```
 
-### 2. Clone project
+#### 2. Clone project
 
 ```sh
 git clone https://github.com/EvanWieland/pudl
 ```
 
-### 3. Build project
+#### 3. Build project
 
 ```sh
 ./compile.sh
+```
+
+#### 4. Test Pudl
+```sh
+./build/pudl ./examples/main.pudl
 ```
 
 ## Usage
