@@ -5,7 +5,7 @@
 #include <string>
 #include <iostream>
 
-#define LinkerCmd "clang++-9"
+#define LinkerCmd "clang++-13"
 #define LinkerProgram "TempLinker.cpp"
 
 class Linker {
