@@ -147,7 +147,7 @@ Options:
     -c, --compile         Compile the source file to an object file
     -o, --output          Create an executable output file
     -l, --linker          Linker command to call when linking object files.
-                              - Default: clang++-9  
+                              - Default: clang++-13
     -h, --help            Get usage and available options
     -p  --print-ir        Print generated LLVM IR to stdout or to a file
     -d, --debug           Print debug information
@@ -219,7 +219,7 @@ Options:
 
 ```sh
 # Link compiled Pudl object file to some C++ source file
-clang++-9 ./examples/link.cpp main.o -o main
+clang++-13 ./examples/link.cpp main.o -o main
 ```
 
 ```sh
