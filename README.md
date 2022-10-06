@@ -193,13 +193,13 @@ Options:
 #### Linking from source
 
 ```sh
-./debug/pudl ./examples/main.pudl -o main -l clang++-9
+./debug/pudl ./examples/main.pudl -o main -l clang++-13
 ```
 
 #### Linking from pre-compiled object file
 
 ```sh
-./debug/pudl ./main.o -o main -l clang++-9
+./debug/pudl ./main.o -o main -l clang++-13
 ```
 
 #### Executing
