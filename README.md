@@ -7,7 +7,7 @@ Pudl is a simple, lightweight, and easily customizable programming language.
 ## About Pudl
 
 Pudl is written using [LLVM](http://llvm.org/), the amazing compiler project. I've built this project off of the
-great work done by [Max Balushkin](https://github.com/NoxChimaera). His approach to building a language without 
+great work done by [Max Balushkin](https://github.com/NoxChimaera). His approach to building a language without
 relying on a third party parser/lexer combo - such as Bison/Flex, ANTLR, etc. - intrigued me. Although, I'm changing a
 lot of the code to fit my needs, Balushkin's work still gave Pudl a huge jump start.
 
@@ -16,6 +16,7 @@ Expect more changes to Pudl in the future. This project is entirely for fun, so 
 ## Example
 
 #### Pudl source code
+
 ```pudl
 func inc( int a ) : int return a + 1
 
@@ -26,6 +27,7 @@ func mast : int {
 ```
 
 #### LLVM IR output (after optimization passes)
+
 ```llvm
 ; ModuleID = 'pudl compiler'
 source_filename = "pudl compiler"
@@ -51,22 +53,62 @@ entry:
 
 ## Getting started
 
+### Docker
+
+#### 1. Clone project
+```sh
+git clone https://github.com/EvanWieland/pudl
+```
+
+#### 2. Build Docker image
+```sh
+docker build . -t pudl
+```
+
+#### 3. Run Docker container
+```sh
+docker run --rm -it pudl
+```
+
+#### 4. Test Pudl
+```sh
+./build/pudl ./examples/main.pudl
+```
+
+```
+.--------------------------------.
+| Pudl Language Compiler v.0.0.1 |
+'--------------------------------'
+Loading source file ./examples/main.pudl
+No optimization level specified, using level -Oall
+Optimization: instruction combining, 
+         promote allocas to registers, 
+         reassociate, 
+         dead code elimination, 
+         global value numbering, 
+         simplify CFG
+
+Executing -----------------------
+
+1
+10
+```
+
 ### 1. Install dependencies
 
 ```sh
 sudo apt-get update && \
 sudo apt-get install -y --no-install-recommends \
-    ca-certificates \
     lsb-release \
     wget \
     software-properties-common \
-    gpg-agent \
-    libedit-dev \
-    uuid-dev \
-    zlib1g-dev \
-    build-essential \
-    pkg-config \
+    gnupg \
     cmake \
+    build-essential \
+    zlib1g-dev \
+    libedit-dev \
+    llvm-runtime \
+    clang-13 \
     git && \
 wget https://apt.llvm.org/llvm.sh && \
 chmod +x llvm.sh && \
@@ -133,7 +175,6 @@ Options:
 ./debug/pudl main.o 
 ```
 
-
 ### Compiling object files
 
 ```sh
@@ -143,16 +184,19 @@ Options:
 ### Linking and Executing object files
 
 #### Linking from source
+
 ```sh
 ./debug/pudl ./examples/main.pudl -o main -l clang++-9
 ```
 
 #### Linking from pre-compiled object file
+
 ```sh
 ./debug/pudl ./main.o -o main -l clang++-9
 ```
 
 #### Executing
+
 ```sh
 ./main
 ```
