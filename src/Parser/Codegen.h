@@ -289,11 +289,17 @@ public:
      * @return 0 if successful, != 0 if failed
      */
     int compile(const char *cOutPath) {
-        InitializeAllTargetInfos();
-        InitializeAllTargets();
-        InitializeAllTargetMCs();
-        InitializeAllAsmParsers();
-        InitializeAllAsmPrinters();
+        // Pudl only ever emits object code for the host machine (there is
+        // no cross-compilation flag anywhere in the CLI/AST), so only the
+        // native target needs to be initialized. InitializeAllTargets() et
+        // al. require *every* target library LLVM's headers declare to be
+        // linkable, which is fragile across LLVM distributions that ship
+        // different subsets of (particularly experimental) targets -- e.g.
+        // the official LLVM Windows release omits M68k, which some distro
+        // packages include.
+        InitializeNativeTarget();
+        InitializeNativeTargetAsmParser();
+        InitializeNativeTargetAsmPrinter();
 
         auto TargetTriple = sys::getDefaultTargetTriple();
         module->setTargetTriple(TargetTriple);

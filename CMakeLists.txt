@@ -39,17 +39,16 @@ set(TARGET_M68k M68kCodeGen M68kAsmParser M68kDesc M68kInfo)
 set(TARGET_LoongArch LoongArchCodeGen LoongArchAsmParser LoongArchDesc LoongArchInfo)
 set(TARGET_Xtensa XtensaCodeGen XtensaAsmParser XtensaDesc XtensaInfo)
 
-# NOTE: Codegen.h's compile() and main.cpp both call the InitializeAllTargets*()
-# family of functions, which reference every target LLVM knows about (per
-# llvm/Config/Targets.def) regardless of which ones Pudl actually needs. This
-# list must therefore include every target LLVM ships, or linking fails with
-# "undefined reference to LLVMInitialize<Target>*" for whichever target is
-# missing. Newer LLVM releases add targets here periodically (LoongArch and
-# Xtensa were added after this list was first written) -- if a future LLVM
-# upgrade adds another one, either add it here or switch away from
-# InitializeAllTargets*() to InitializeNativeTarget*() (Pudl only ever
-# targets the host machine; see the project hardening plan, Phase 3).
-set(TARGETS_TO_BUILD "WebAssembly" "XCore" "SystemZ" "Sparc" "RISCV" "PowerPC" "NVPTX" "MSP430" "Mips" "Lanai" "Hexagon" "BPF" "ARM" "AMDGPU" "X86" "AArch64" "AVR" "VE" "M68k" "LoongArch" "Xtensa")
+# Pudl only ever emits code for the host machine (Codegen.h's compile() uses
+# InitializeNativeTarget*(), not InitializeAllTargets*() -- there is no
+# cross-compilation flag anywhere in the CLI/AST), so only the target
+# families a Pudl developer might actually be building/running on need to be
+# linked. Deliberately NOT "all of them": different LLVM distributions ship
+# different subsets of the long tail of (particularly experimental) backend
+# targets -- e.g. the official LLVM Windows release omits M68k, which some
+# Linux distro packages include -- so linking every target LLVM's headers
+# declare is fragile across platforms for no benefit here.
+set(TARGETS_TO_BUILD "X86" "AArch64")
 
 set(LLVM_TARGETS)
 foreach (target IN ITEMS ${TARGETS_TO_BUILD})
