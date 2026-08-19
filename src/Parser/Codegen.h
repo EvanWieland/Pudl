@@ -365,7 +365,12 @@ public:
     }
 
     void dump() {
-        module->dump();
+        // Module::dump() is compiled out of release builds of LLVM (it's
+        // guarded behind !NDEBUG/LLVM_ENABLE_DUMP upstream) -- some distro
+        // packages build LLVM with dump() enabled anyway, but the official
+        // release binaries don't, causing an unresolved-symbol link error.
+        // print() is the always-available equivalent.
+        module->print(errs(), nullptr);
     }
 
     /// Generates IR for all nodes in vector
