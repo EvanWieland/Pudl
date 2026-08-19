@@ -34,6 +34,31 @@ jobs:
             llvm-18-dev clang-18 libpolly-18-dev libedit-dev zlib1g-dev ninja-build
           echo "LLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm" >> "$GITHUB_ENV"
 
+          # Codegen.h/Linker.h invoke `lli` (and, for -o/link builds,
+          # `clang++-13`) unversioned/hardcoded rather than looking up
+          # whatever LLVM version is actually installed -- a known issue
+          # (see the project hardening plan, Phase 3, item 5). Symlinking
+          # here is a CI-environment accommodation, not a source change;
+          # the real fix is detecting the linker/tools at runtime.
+          sudo ln -sf /usr/bin/lli-18 /usr/local/bin/lli
+
+      - name: Cache LLVM Windows SDK
+        if: runner.os == 'Windows'
+        id: cache-llvm-windows
+        uses: actions/cache@v4
+        with:
+          path: C:\llvm-sdk
+          key: llvm-windows-sdk-18.1.8
+
+      - name: Cache vcpkg libxml2
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\vcpkg\installed
+            C:\vcpkg\packages
+          key: vcpkg-libxml2-x64-windows-1
+
       - name: Install LLVM 18 (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -42,20 +67,46 @@ jobs:
         # only -- no LLVMConfig.cmake, no static libs (confirmed locally and
         # in earlier CI runs: find_package(LLVM CONFIG) fails against it).
         # The "clang+llvm-*-windows-msvc" release archive is LLVM's actual
-        # dev SDK distribution for Windows and has both.
+        # dev SDK distribution for Windows and has both. It's ~950MB, so
+        # it's cached (see the step above) rather than re-downloaded and
+        # re-extracted on every run.
         run: |
-          $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz"
-          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\llvm.tar.xz"
-          tar -xf "$env:RUNNER_TEMP\llvm.tar.xz" -C "$env:RUNNER_TEMP"
-          $llvmDir = Get-ChildItem -Path $env:RUNNER_TEMP -Directory -Filter "clang+llvm-*" | Select-Object -First 1 -ExpandProperty FullName
-          echo "LLVM_DIR=$llvmDir\lib\cmake\llvm" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if (-not (Test-Path "C:\llvm-sdk\lib\cmake\llvm\LLVMConfig.cmake")) {
+            $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz"
+            Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\llvm.tar.xz"
+            New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\llvm-extract" | Out-Null
+            tar -xf "$env:RUNNER_TEMP\llvm.tar.xz" -C "$env:RUNNER_TEMP\llvm-extract"
+            $extracted = Get-ChildItem -Path "$env:RUNNER_TEMP\llvm-extract" -Directory -Filter "clang+llvm-*" | Select-Object -First 1 -ExpandProperty FullName
+            New-Item -ItemType Directory -Force -Path "C:\llvm-sdk" | Out-Null
+            Move-Item -Path "$extracted\*" -Destination "C:\llvm-sdk" -Force
+          }
+          echo "LLVM_DIR=C:\llvm-sdk\lib\cmake\llvm" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "C:\llvm-sdk\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
           # LLVMExports.cmake's link interface for LLVMWindowsManifest
           # requires a LibXml2::LibXml2 target to exist, even though Pudl
           # itself never touches libxml2 -- install it via the vcpkg that
-          # windows-latest runners already ship at C:\vcpkg.
+          # windows-latest runners already ship at C:\vcpkg (cached above;
+          # building it from source takes several minutes on a cache miss).
           C:\vcpkg\vcpkg.exe install libxml2:x64-windows
           echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          # LLVM's official Windows release bakes an absolute path to the MS
+          # DIA SDK from whatever machine built the release (here, a VS2019
+          # Professional install that obviously doesn't exist on this
+          # runner) into its exported CMake targets, for LLVMDebugInfoPDB --
+          # a component Pudl never uses. windows-latest ships its own DIA
+          # SDK under the installed VS2022 toolchain; copy diaguids.lib to
+          # the exact path LLVM's export expects so the link succeeds.
+          $diaTarget = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\DIA SDK\lib\amd64\diaguids.lib"
+          $diaSource = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "diaguids.lib" -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if ($diaSource) {
+            New-Item -ItemType Directory -Force -Path (Split-Path $diaTarget) | Out-Null
+            Copy-Item -Path $diaSource -Destination $diaTarget -Force
+          } else {
+            Write-Warning "diaguids.lib not found under the installed Visual Studio -- Build may fail needing it"
+          }
 
       - name: Configure
         shell: bash
