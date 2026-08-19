@@ -881,7 +881,18 @@ public:
             args.push_back(builder.CreateFPExt(operands.top(), builder.getDoubleTy()));
         } else {
             args.push_back(builder.CreateInBoundsGEP(formati->getValueType(), formati, idxRef, formati->getName()));
-            args.push_back(operands.top());
+
+            Value *val = operands.top();
+            if (aNode.getSubexpr()->getType() == TType::BOOL) {
+                // A bare i1 passed to a variadic call (the %d format string
+                // expects i32) is not reliably widened by every target's
+                // calling convention -- it happened to print correctly on
+                // Linux/SysV, but read as garbage upper bits on Windows.
+                // Zero-extend explicitly, matching normal C integer
+                // promotion of bool -> int.
+                val = builder.CreateZExt(val, builder.getInt32Ty());
+            }
+            args.push_back(val);
         }
         operands.pop();
 

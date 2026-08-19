@@ -25,7 +25,7 @@ declare i32 @printf(ptr, ...)
 
 define i32 @mast() {
 entry:
-  %0 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.formati, i1 true)
+  %0 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.formati, i32 1)
   %1 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.formati, i32 10)
   ret i32 0
 }
