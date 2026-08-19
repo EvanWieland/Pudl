@@ -115,6 +115,16 @@ jobs:
           if [ -n "${CMAKE_TOOLCHAIN_FILE:-}" ]; then
             extra_args+=("-DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE")
           fi
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            # C:\llvm-sdk\bin (added to PATH above, so `lli` is resolvable
+            # for the Test step) also contains clang++.exe, which CMake's
+            # Ninja-generator compiler detection happily picks up before
+            # cl.exe. That specific clang (18) is too old for this runner's
+            # MSVC STL (it demands Clang 20+ when compiling via clang-cl),
+            # and mixing MSVC's Ninja setup with clang++ isn't the point
+            # here anyway -- force MSVC explicitly.
+            extra_args+=("-DCMAKE_C_COMPILER=cl.exe" "-DCMAKE_CXX_COMPILER=cl.exe")
+          fi
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR="$LLVM_DIR" "${extra_args[@]}"
 
       - name: Build
