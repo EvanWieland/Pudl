@@ -30,6 +30,22 @@ if (-not (Test-Path $Bin)) {
     exit 2
 }
 
+function Invoke-Pudl {
+    param([string[]]$PudlArgs)
+    # PowerShell's own `&`-plus-`2>&1` on a native command wraps every
+    # stderr line in a NativeCommandError record -- and, worse, under
+    # $ErrorActionPreference = "Stop" (set above) that becomes a
+    # terminating exception the instant pudl writes anything to stderr,
+    # which -p/--print-ir does (the IR dump goes to stderr when no output
+    # file is given), aborting the capture mid-stream. Let cmd.exe do the
+    # low-level stream merge instead of PowerShell, so only ordinary text
+    # ever reaches PowerShell.
+    $quoted = (@($Bin) + $PudlArgs) | ForEach-Object { '"' + $_ + '"' }
+    $cmdLine = $quoted -join ' '
+    $lines = cmd /c "$cmdLine 2>&1"
+    return ($lines -join "`n")
+}
+
 function Test-KnownBroken([string]$Name) {
     if (-not (Test-Path $KnownBrokenFile)) { return $false }
     $pattern = "``" + $Name
@@ -39,8 +55,14 @@ function Test-KnownBroken([string]$Name) {
 function Invoke-CheckOrRecord([string]$Name, [string]$ExpectedPath, [string]$Actual) {
     # Normalize CRLF -> LF so a Windows build's console output can't
     # spuriously mismatch a golden file recorded on Linux (or vice versa)
-    # over line endings alone.
-    $Actual = $Actual -replace "`r`n", "`n"
+    # over line endings alone. Also strip ALL trailing newlines: bash's
+    # $(...) command substitution (used by run_golden_tests.sh, which
+    # recorded these baselines) does this unconditionally, and Invoke-Pudl's
+    # line-join can leave one trailing newline of its own if the program's
+    # last line of output was blank. Without stripping both sides the same
+    # way, a golden file could spuriously mismatch by one invisible
+    # trailing newline.
+    $Actual = ($Actual -replace "`r`n", "`n").TrimEnd("`n")
 
     if ($Record) {
         Set-Content -Path $ExpectedPath -Value $Actual -NoNewline
@@ -55,7 +77,7 @@ function Invoke-CheckOrRecord([string]$Name, [string]$ExpectedPath, [string]$Act
 
     $expectedContent = Get-Content -Path $ExpectedPath -Raw
     if ($null -eq $expectedContent) { $expectedContent = "" }
-    $expectedContent = $expectedContent -replace "`r`n", "`n"
+    $expectedContent = ($expectedContent -replace "`r`n", "`n").TrimEnd("`n")
 
     if ($Actual -eq $expectedContent) {
         Write-Host "PASS: $Name"
@@ -93,7 +115,7 @@ try {
                 $fail = $true
                 continue
             }
-            $actual = (& $Bin $rel -p 2>&1 | Out-String)
+            $actual = Invoke-Pudl -PudlArgs @($rel, "-p")
             $ok = Invoke-CheckOrRecord -Name $name -ExpectedPath (Join-Path $GoldenIrDir "$name.ir.txt") -Actual $actual
             if (-not $ok) { $fail = $true }
         }
@@ -102,7 +124,7 @@ try {
         Get-ChildItem -Path $ExamplesDir -Filter "*.pudl" | ForEach-Object {
             $name = $_.BaseName
             $rel = "examples/$name.pudl"
-            $actual = (& $Bin $rel 2>&1 | Out-String)
+            $actual = Invoke-Pudl -PudlArgs @($rel)
             $ok = Invoke-CheckOrRecord -Name $name -ExpectedPath (Join-Path $GoldenDir "$name.expected.txt") -Actual $actual
             if (-not $ok) { $fail = $true }
         }
