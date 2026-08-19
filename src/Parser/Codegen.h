@@ -15,7 +15,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/FileSystem.h>
-#include <llvm/Support/Host.h>
+#include <llvm/TargetParser/Host.h>
 #include <llvm/MC/TargetRegistry.h>
 #include "llvm/Support/TargetSelect.h"
 #include <llvm/Target/TargetMachine.h>
@@ -313,7 +313,7 @@ public:
         auto Features = "";
 
         TargetOptions opt;
-        auto RM = Optional<Reloc::Model>();
+        auto RM = std::optional<Reloc::Model>();
         auto TheTargetMachine =
                 Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
@@ -328,7 +328,7 @@ public:
         }
 
         legacy::PassManager pass;
-        auto FileType = llvm::CGFT_ObjectFile;
+        auto FileType = llvm::CodeGenFileType::ObjectFile;
 
         if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
             errs() << "TheTargetMachine can't emit a file of this type";
@@ -789,7 +789,7 @@ public:
         builder.CreateBr(mergeBb);
         thenBb = builder.GetInsertBlock();
 
-        func->getBasicBlockList().push_back(elseBb);
+        elseBb->insertInto(func);
         builder.SetInsertPoint(elseBb);
 
         if (aNode.getFalseBranch()) {
@@ -799,7 +799,7 @@ public:
         builder.CreateBr(mergeBb);
         elseBb = builder.GetInsertBlock();
 
-        func->getBasicBlockList().push_back(mergeBb);
+        mergeBb->insertInto(func);
         builder.SetInsertPoint(mergeBb);
     }
 
@@ -821,10 +821,10 @@ public:
         aNode.getBody()->accept((*this));
         builder.CreateBr(loopBb);
 
-        func->getBasicBlockList().push_back(thenBb);
+        thenBb->insertInto(func);
         thenBb = builder.GetInsertBlock();
 
-        func->getBasicBlockList().push_back(afterBb);
+        afterBb->insertInto(func);
         builder.SetInsertPoint(afterBb);
     }
 
@@ -843,7 +843,7 @@ public:
         Value *cond = pop();
         builder.CreateCondBr(cond, loopBb, afterBb);
 
-        func->getBasicBlockList().push_back(afterBb);
+        afterBb->insertInto(func);
         builder.SetInsertPoint(afterBb);
     }
 

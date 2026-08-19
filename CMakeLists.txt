@@ -107,3 +107,31 @@ llvm_map_components_to_libnames(
 )
 
 target_link_libraries(${PROJECT_NAME} ${llvm_libs})
+
+enable_testing()
+
+if (WIN32)
+    add_test(
+            NAME golden_tests
+            COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+                    -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_golden_tests.ps1"
+                    -Bin "$<TARGET_FILE:${PROJECT_NAME}>"
+    )
+    add_test(
+            NAME golden_ir_tests
+            COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+                    -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_golden_tests.ps1"
+                    -Bin "$<TARGET_FILE:${PROJECT_NAME}>" -Ir
+    )
+else ()
+    add_test(
+            NAME golden_tests
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_golden_tests.sh"
+                    "$<TARGET_FILE:${PROJECT_NAME}>"
+    )
+    add_test(
+            NAME golden_ir_tests
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_golden_tests.sh"
+                    "$<TARGET_FILE:${PROJECT_NAME}>" --ir
+    )
+endif ()

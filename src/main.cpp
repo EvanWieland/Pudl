@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cstdio>
 
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
 
 #include "Parser/Printer.h"
 #include "Parser/Codegen.h"

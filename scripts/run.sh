@@ -1,28 +1,7 @@
-##!/bin/bash
-#
-##./build/pudl "$@"
-#./debug/pudl "$@"
-
 #!/bin/bash
-if [ "$#" -eq "0" ]; then
-  # src="example/main.t"
-  src="examples/main.t"
-  out="debug/out.3ac"
-elif [ "$#" -eq "1" ]; then
-  src=$1
-  out="debug/out.3ac"
-else
-  src=$1
-  out=$2
-fi
+# Runs a Pudl source file with the built compiler.
+# Usage: scripts/run.sh [file.pudl]   (defaults to examples/main.pudl)
 
-echo $src
-echo $out
+src="${1:-examples/main.pudl}"
 
-echo "BUILD:"
-debug/pudl $src $out
-debug/pudl $src "debug/opt.3ac" -Oall
-echo
-echo
-echo "RUN:"
-lli $out
+./build/pudl "$src"

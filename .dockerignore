@@ -1,0 +1,12 @@
+.git/
+.github/
+brand/
+build/
+build-*/
+debug/
+.cmake/
+*.o
+*.obj
+*.exe
+CMakeCache.txt
+CMakeFiles/
