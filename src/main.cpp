@@ -15,7 +15,11 @@ int main(int argc, char *argv[]) {
               << "| Pudl Language Compiler v.0.0.1 |" << std::endl
               << "'--------------------------------'" << std::endl;
 
-    bool isSourceFile, compile, link, printIR, debug = false;
+    bool isSourceFile = false;
+    bool compile = false;
+    bool link = false;
+    bool printIR = false;
+    bool debug = false;
 
     CLIManager cli(argc, argv);
 

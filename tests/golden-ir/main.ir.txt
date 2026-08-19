@@ -1,0 +1,31 @@
+.--------------------------------.
+| Pudl Language Compiler v.0.0.1 |
+'--------------------------------'
+Loading source file examples/main.pudl
+Printing LLVM IR:  stderr
+No optimization level specified, using level -Oall
+Optimization: instruction combining, 
+	 promote allocas to registers, 
+	 reassociate, 
+	 dead code elimination, 
+	 global value numbering, 
+	 simplify CFG
+
+Executing -----------------------
+
+1
+10
+; ModuleID = 'pudl compiler'
+source_filename = "pudl compiler"
+
+@.formati = private constant [4 x i8] c"%d\0A\00"
+@.formatf = private constant [4 x i8] c"%f\0A\00"
+
+declare i32 @printf(ptr %0, ...)
+
+define i32 @mast() {
+entry:
+  %0 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.formati, i1 true)
+  %1 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.formati, i32 10)
+  ret i32 0
+}

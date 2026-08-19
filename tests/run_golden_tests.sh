@@ -63,6 +63,10 @@ is_known_broken() {
 
 check_or_record() {
   local name="$1" expected="$2" actual="$3"
+  # Normalize CRLF -> LF so a Windows build's console output can't spuriously
+  # mismatch a golden file recorded on Linux (or vice versa) over line
+  # endings alone.
+  actual="${actual//$'\r'/}"
 
   if [ "$RECORD" -eq 1 ]; then
     printf '%s' "$actual" > "$expected"
@@ -77,6 +81,7 @@ check_or_record() {
 
   local expected_content
   expected_content="$(cat "$expected")"
+  expected_content="${expected_content//$'\r'/}"
   if [ "$actual" = "$expected_content" ]; then
     echo "PASS: $name"
     return 0
@@ -97,16 +102,23 @@ check_or_record() {
 
 fail=0
 
+# Run from the repo root and pass example paths relative to it (e.g.
+# "examples/main.pudl"), never absolute — the CLI echoes back whatever path
+# it was given ("Loading source file ..."), and an absolute path would bake
+# this machine's checkout location into the golden files, breaking on every
+# other machine (including CI).
+cd "$REPO_ROOT"
+
 if [ "$IR_MODE" -eq 1 ]; then
   mkdir -p "$GOLDEN_IR_DIR"
   for name in $IR_SUBSET; do
-    src="$EXAMPLES_DIR/$name.pudl"
-    if [ ! -f "$src" ]; then
-      echo "FAIL: $name (source not found: $src)"
+    rel="examples/$name.pudl"
+    if [ ! -f "$rel" ]; then
+      echo "FAIL: $name (source not found: $rel)"
       fail=1
       continue
     fi
-    actual="$("$BIN" "$src" -p 2>&1)"
+    actual="$("$BIN" "$rel" -p 2>&1)"
     check_or_record "$name" "$GOLDEN_IR_DIR/$name.ir.txt" "$actual" || fail=1
   done
 else
@@ -114,7 +126,8 @@ else
   for src in "$EXAMPLES_DIR"/*.pudl; do
     [ -e "$src" ] || continue
     name="$(basename "$src" .pudl)"
-    actual="$("$BIN" "$src" 2>&1)"
+    rel="examples/$name.pudl"
+    actual="$("$BIN" "$rel" 2>&1)"
     check_or_record "$name" "$GOLDEN_DIR/$name.expected.txt" "$actual" || fail=1
   done
 fi
