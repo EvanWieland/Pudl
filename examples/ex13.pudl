@@ -1,0 +1,15 @@
+# KNOWN BROKEN -- see tests/KNOWN_BROKEN.md. `&&`/`||` are not
+# short-circuit: Codegen.h always evaluates both operands eagerly before
+# combining them, so sideEffect() below gets called (and prints) even
+# though `False && ...` should never need to evaluate its right-hand side.
+# Correct output would be just "0" (sideEffect never called).
+func sideEffect( int x ) : bool {
+  print 999
+  return True
+}
+
+func mast : int {
+  bool result = False && sideEffect(0)
+  print result
+  return 0
+}

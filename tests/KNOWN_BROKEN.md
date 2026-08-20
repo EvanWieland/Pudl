@@ -21,3 +21,17 @@ golden file (`--record`/`-Record`), and confirm the new output is correct.
   segfault trigger. See the project hardening plan, Phase 4, item 1. Confirm
   the exact mechanism with a debugger/`-p`/`--print-ir` when fixing, then
   re-record this golden file.
+
+- `ex13` — `examples/ex13.pudl` demonstrates that `&&`/`||` are not
+  short-circuit: `Codegen.h`'s `visit(BinaryNode)` always evaluates both
+  operands eagerly (via `bilog()`) before combining them with
+  `CreateAnd`/`CreateOr`, instead of branching so the right-hand side is
+  only evaluated when it can actually affect the result. The example calls
+  a function with an observable side effect (`print`) as the right-hand
+  operand of `False && ...`; correct output is just `0` (the function
+  should never be called), but the recorded golden output is `999\n0`
+  (it gets called anyway). Fixing this requires restructuring
+  `visit(BinaryNode)`'s `&&`/`||` handling to branch like the `if`-statement
+  path does, which the project hardening plan schedules for Phase 4 (after
+  the LLVM-migration-driven rewrite of the same `BasicBlock` code, so it's
+  only rewritten once). Re-record this golden file once fixed.
