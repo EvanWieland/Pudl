@@ -55,66 +55,30 @@ foreach (target IN ITEMS ${TARGETS_TO_BUILD})
     list(APPEND LLVM_TARGETS "${TARGET_${target}}")
 endforeach (target)
 
+# Curated by build-and-iterate against every #include <llvm/...> actually
+# used in src/ (grep for them if extending this): the original list here
+# was copy-pasted broad rather than curated, and pulled in several
+# libraries with real downstream cost -- WindowsManifest and DebugInfoPDB
+# in particular were the direct cause of a Windows-CI-only link failure
+# needing the MS DIA SDK, for functionality (Windows manifest embedding,
+# PDB debug-info parsing) Pudl never touches. llvm_map_components_to_libnames
+# resolves each of these components' own transitive dependencies
+# automatically, so only directly-used components need listing here.
 llvm_map_components_to_libnames(
         llvm_libs
-        TextAPI
-        OrcJIT
-        JITLink
-        ObjectYAML
-        WindowsManifest
-        Coverage
-        TableGen
-        LTO
-        Passes
-        ObjCARCOpts
-        Coroutines
-        LibDriver
-        XRay
-        ${LLVM_TARGETS}
-        MIRParser
-        ipo
-        Instrumentation
-        Vectorize
-        Linker
-        IRReader
-        AsmParser
-        Symbolize
-        DebugInfoPDB
-        FuzzMutate
-        LineEditor
-        MCA
-        DebugInfoGSYM
-        GlobalISel
-        SelectionDAG
-        AsmPrinter
-        DebugInfoDWARF
-        MCJIT
-        Interpreter
-        ExecutionEngine
-        RuntimeDyld
-        CodeGen
-        Target
-        ScalarOpts
-        InstCombine
-        AggressiveInstCombine
-        TransformUtils
-        BitWriter
-        Analysis
-        ProfileData
-        DlltoolDriver
-        Option
-        Object
-        MCParser
-        MC
-        DebugInfoCodeView
-        DebugInfoMSF
-        BitReader
         Core
-        Remarks
-        BinaryFormat
-        BitstreamReader
         Support
-        Demangle
+        TargetParser
+        MC
+        Target
+        ${LLVM_TARGETS}
+        CodeGen
+        AsmPrinter
+        Analysis
+        TransformUtils
+        InstCombine
+        ScalarOpts
+        Passes
 )
 
 target_link_libraries(${PROJECT_NAME} ${llvm_libs})
