@@ -1,0 +1,14 @@
+# Zero-argument function calls. Before this was fixed, Parser::funcallArgs()
+# checked for an immediately-closing `)` by looking at `current` right
+# after consuming the function name -- but at that point `current` was
+# still the `(` itself, not whatever follows it, so `name()` always fell
+# through to trying (and failing) to parse `)` as an expression instead
+# of recognizing zero arguments. Correct output is 7.
+func seven : int {
+  return 7
+}
+
+func mast : int {
+  print seven()
+  return 0
+}

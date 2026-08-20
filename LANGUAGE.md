@@ -41,12 +41,9 @@ bool flag = True
 Declaration and assignment share one syntax-level form
 (`<type> <name> = <expr>` to declare, `<name> = <expr>` to reassign an
 existing variable or parameter); both require an initializer -- there is
-no uninitialized declaration. Assigning to an undeclared name is a
-parse error. Redeclaring an already-declared name in the same scope is
-**not** currently rejected -- it silently compiles, but which
-declaration later references actually resolve to isn't something to
-rely on (a known rough edge, not an intentional shadowing rule). Just
-don't do it.
+no uninitialized declaration. Assigning to an undeclared name, or
+redeclaring an already-declared name in the same scope, is a parse
+error.
 
 ## Operators
 
@@ -67,27 +64,29 @@ Precedence, loosest to tightest (mirrors the grammar below):
 ## Functions
 
 ```pudl
-func add( int a, int b ) : int {
-  return a + b
+func fact( int n ) : int {
+  if n <= 1 {
+    return 1
+  }
+  return n * fact( n - 1 )
 }
 
 func mast : int {
-  print add( 2, 3 )
+  print fact( 5 )   # 120
   return 0
 }
 ```
 
 Parameters are typed and, unlike in many C-like languages, *can* be
-reassigned inside the function body -- `a = a + 1` inside `add` above
-rebinds the parameter, it doesn't shadow it. Functions must be fully
-defined before they're called from another function's body (no forward
-declarations) -- **including calling themselves**: a function isn't
-registered as callable until its own body has finished parsing, so
-recursion currently fails with "function `f` is undefined" rather than
-working. This is a real bug, not an intentional restriction (tracked as
-future work); iterative `while`/`do`-`while` loops are the only way to
-repeat work for now. Argument count and type are checked at the call
-site.
+reassigned inside the function body -- `a = a + 1` inside a function
+taking `int a` rebinds the parameter, it doesn't shadow it. A function
+can call itself (direct recursion, as `fact` does above) but must still
+be fully defined before being called from *another* function's body --
+there's no forward declaration, so mutual recursion (A calls B, and B
+calls A back) doesn't work: A can't call B until B is already defined,
+so if A is written first, its own call to B fails even though B itself
+can freely call A (already-defined by the time B is parsed). Argument
+count and type are checked at the call site.
 
 ## Statements
 
@@ -116,14 +115,9 @@ Blocks (`{ ... }`) introduce their own variable scope: a variable
 declared inside an `if`/`while`/`do` body doesn't leak into the
 enclosing scope once the block ends.
 
-`while`'s condition is required to be `bool` (a non-`bool` condition is
-a parse error). `if` and `do`-`while` don't currently enforce this --
-they accept any numeric expression and treat it as C-style truthy/falsy
-(nonzero runs the branch), which is inconsistent with `while` and with
-the "no implicit bool/numeric conversion" rule above. Not an
-intentional design choice -- write `bool` conditions everywhere anyway,
-since `if`/`do`-`while` accepting numbers today isn't something to
-depend on.
+Every condition (`if`, `while`, `do`-`while`) is required to be `bool`;
+a numeric condition is a parse error, consistent with the "no implicit
+bool/numeric conversion" rule above.
 
 ## Not yet supported
 
@@ -145,9 +139,9 @@ function-args       := [<type> <variable>,]* [<type> <variable>]?
 statement   := <block> | <if-stmt> | <while-stmt> | <do-while-stmt>
              | <declaration> | <assignment> | <funcall> | <print> | <return>
 block       := { <statement>* }
-if-stmt     := If <expression> <statement> (Else <statement>)?
+if-stmt     := If <expression:bool> <statement> (Else <statement>)?
 while-stmt  := While <expression:bool> <statement>
-do-while    := Do <statement> While <expression>
+do-while    := Do <statement> While <expression:bool>
 declaration := <type> <variable> = <expression>
 assignment  := <variable> = <expression>
 print       := Print <expression>

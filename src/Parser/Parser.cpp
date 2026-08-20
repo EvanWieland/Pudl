@@ -113,11 +113,23 @@ FunctionDefNode *Parser::functionDef() {
         std::cout << "WARN: undefined type" << std::endl;
     }
     next();
+
+    // Registered (name/args/type known, body still nullptr) before the
+    // body is parsed, so a call to this function from inside its own
+    // body -- direct recursion -- can already resolve via funcs[name].
+    // funcs.insert() used to happen only after the body was fully
+    // parsed, so funcall() saw funcs[name] == NULL for any such
+    // self-call and reported "function `name` is undefined". Mutual
+    // recursion (A calls B, B calls A) still doesn't work -- that needs
+    // a full pre-pass over every top-level function signature before
+    // any body is parsed, which this single-pass parser doesn't do.
+    FunctionDefNode *func = arena.construct<FunctionDefNode>(name, args, nullptr, type);
+    funcs.insert(std::pair<std::string, FunctionDefNode *>(name, func));
+
     StatementNode *body = statement();
     if (body == NULL) { return NULL; }
+    func->setBody(body);
 
-    FunctionDefNode *func = arena.construct<FunctionDefNode>(name, args, body, type);
-    funcs.insert(std::pair<std::string, FunctionDefNode *>(name, func));
     return func;
 }
 
@@ -234,9 +246,14 @@ IoPrintNode *Parser::ioPrint() {
 //   ( Else <statement> )?
 IfStatementNode *Parser::ifStatement() {
     infoln("debug?: parsing <if-stmt>");
+    Token t = current;
     // if (!is(next(), PL)) { return NULL; }
     ExpressionNode *cond = expression();
     if (cond == NULL) { return NULL; }
+    if (cond->getType() != TType::BOOL) {
+        error(t.getLine(), "expected boolean expression");
+        return NULL;
+    }
 
     infoln("debug?: parsing <if-stmt.true>");
     StatementNode *trueBranch = statement();
@@ -276,8 +293,13 @@ DoWhileStatementNode *Parser::doWhileStmt() {
 
     infoln("debug?: parsing <do-while-stmt.cond>");
     if (!is(current, WHILE)) { return nullptr; }
+    Token condTok = current;
     ExpressionNode *cond = expression();
     if (cond == nullptr) { return nullptr; }
+    if (cond->getType() != TType::BOOL) {
+        error(condTok.getLine(), "expected boolean expression");
+        return nullptr;
+    }
     return arena.construct<DoWhileStatementNode>(cond, body);
 }
 
@@ -349,6 +371,16 @@ AssignmentNode *Parser::declaration() {
     if (!is(next(), SYMBOL)) { return NULL; }
 
     std::string name = current.getLexeme();
+    // scope.insert() below silently no-ops if `name` is already a key
+    // (std::map::insert() never overwrites an existing entry) -- without
+    // this check, redeclaring a name compiled without error, but which
+    // declaration later references actually resolved to was undefined
+    // behavior from the language's perspective (whichever one happened
+    // to already be in the map).
+    if (scope.find(name) != scope.end()) {
+        error(t.getLine(), "variable `" + name + "` is already declared");
+        return nullptr;
+    }
     VarNode *lhs = arena.construct<VarNode>(name, type);
     if (!is(next(), ASSIGN)) { return NULL; }
 
@@ -692,6 +724,30 @@ std::vector<ExpressionNode *> Parser::funcallArgs() {
     Token tmp = current;
     std::vector<ExpressionNode *> args;
     next();
+
+    // Peek at the token right after '(' to detect a zero-argument call
+    // (`name()`) without disturbing it for the "one or more args" path
+    // below, which -- like every other <expr> callsite in this parser --
+    // relies on expression()'s own leading next() to consume the
+    // preceding separator token ('(' for the first argument, ',' for
+    // each one after). The loop's own `is(current, PR, true)` check
+    // can't see this: at this point `current` IS '(', not whatever
+    // follows it, so `name()` always fell through to trying (and
+    // failing) to parse ')' as an expression instead of recognizing
+    // zero arguments -- "expected expression" for every no-arg call.
+    Token afterParen = current;
+    Token peek = next();
+    unlex(peek);
+    current = afterParen;
+
+    if (is(peek, PR, true)) {
+        // Consume the buffered ')' so this returns with `current`
+        // positioned at ')', matching what the non-empty path below
+        // leaves for funcall()'s own trailing next() to consume.
+        next();
+        return args;
+    }
+
     while (1) {
         if (is(current, PR, true)) { break; }
 

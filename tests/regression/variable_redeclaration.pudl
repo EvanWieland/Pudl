@@ -1,0 +1,9 @@
+# Regression fixture: redeclaring an already-declared name in the same
+# scope used to silently compile (std::map::insert() no-ops on an
+# existing key, so the second declaration's binding was simply
+# discarded) instead of being rejected. Must now be a parse error.
+func mast : int {
+  int x = 1
+  int x = 2
+  return 0
+}

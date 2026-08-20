@@ -926,6 +926,22 @@ public:
         // wrong output.
         if (!isSuccess) { return; }
 
+        // Also reachable on a *successful* parse: Pudl doesn't statically
+        // check that every path returns a value (no Sema pass yet), so
+        // e.g. `if cond { return 1 } else { return 2 }` as a function's
+        // last statement leaves the "Merge" block after it completely
+        // empty and unterminated -- both real paths already returned
+        // before reaching it, so nothing ever branches into it or adds
+        // to it. `unreachable` is exactly correct here: this block is
+        // provably dead code (every way to arrive at this point in the
+        // source already returned), so trapping if it's ever somehow
+        // actually executed is safe, and makes the IR valid instead of
+        // leaving a terminator-less block for the optimizer/JIT to choke
+        // on.
+        if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+            builder.CreateUnreachable();
+        }
+
         FPM.run(*func, FAM);
     }
 
@@ -947,6 +963,12 @@ public:
         for (StatementNode *node: aNode.getStatements()) {
             node->accept((*this));
             if (!isSuccess) { break; }
+            // A `return` mid-block already terminated the current
+            // insert block -- generating any further statements from
+            // this block into it would insert instructions after that
+            // terminator (invalid IR; see visit(IfStatementNode)'s
+            // comment for what that silently does downstream).
+            if (builder.GetInsertBlock()->getTerminator() != nullptr) { break; }
         }
         scopeStack.pop();
     }
@@ -966,7 +988,19 @@ public:
         builder.SetInsertPoint(thenBb);
 
         aNode.getTrueBranch()->accept((*this));
-        builder.CreateBr(mergeBb);
+        if (!isSuccess) { return; }
+        // A branch ending in `return` already terminates its own block
+        // (with a `ret`) -- unconditionally adding another branch here
+        // would give that block two terminators, which is invalid IR.
+        // The optimizer doesn't reject invalid IR loudly: it silently
+        // treated the whole malformed block as dead and dropped it,
+        // which is what made `if cond { return x } ...` compile cleanly
+        // but always fall through and return the wrong value -- no
+        // error, just a wrong answer. Found while testing the parser's
+        // recursion fix (fact()'s base case is exactly this shape).
+        if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+            builder.CreateBr(mergeBb);
+        }
         thenBb = builder.GetInsertBlock();
 
         elseBb->insertInto(func);
@@ -974,9 +1008,12 @@ public:
 
         if (aNode.getFalseBranch()) {
             aNode.getFalseBranch()->accept((*this));
+            if (!isSuccess) { return; }
         }
 
-        builder.CreateBr(mergeBb);
+        if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+            builder.CreateBr(mergeBb);
+        }
         elseBb = builder.GetInsertBlock();
 
         mergeBb->insertInto(func);
@@ -1013,7 +1050,12 @@ public:
         builder.SetInsertPoint(thenBb);
         aNode.getBody()->accept((*this));
         if (!isSuccess) { return; }
-        builder.CreateBr(loopBb);
+        // See visit(IfStatementNode)'s comment: a body ending in `return`
+        // already terminates this block, so looping back would give it
+        // two terminators (invalid IR, silently mishandled downstream).
+        if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+            builder.CreateBr(loopBb);
+        }
 
         afterBb->insertInto(func);
         builder.SetInsertPoint(afterBb);
@@ -1031,10 +1073,16 @@ public:
         builder.SetInsertPoint(loopBb);
         aNode.getBody()->accept((*this));
         if (!isSuccess) { return; }
-        aNode.getCond()->accept((*this));
-        if (!isSuccess) { return; }
-        Value *cond = pop();
-        builder.CreateCondBr(cond, loopBb, afterBb);
+        // If the body already returned, this block is done -- evaluating
+        // the condition and branching on it would insert more
+        // instructions after that block's `ret` (same invalid-IR issue
+        // as visit(IfStatementNode)/the loop above).
+        if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+            aNode.getCond()->accept((*this));
+            if (!isSuccess) { return; }
+            Value *cond = pop();
+            builder.CreateCondBr(cond, loopBb, afterBb);
+        }
 
         afterBb->insertInto(func);
         builder.SetInsertPoint(afterBb);

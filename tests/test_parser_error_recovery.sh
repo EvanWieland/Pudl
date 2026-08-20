@@ -27,6 +27,15 @@
 # tests/regression/integer_literal_overflow.pudl exercises an uncaught
 # std::out_of_range crash (also found by fuzzing): Parser::intgr() called
 # std::stoi() with no try/catch.
+# tests/regression/variable_redeclaration.pudl and
+# if_non_bool_condition.pudl exercise two of the three bugs documented
+# in LANGUAGE.md while writing it: redeclaring a name used to silently
+# compile instead of erroring, and `if`/`do`-`while` used to accept any
+# numeric condition instead of requiring `bool` like `while` already
+# did. (The third documented bug, recursion not working, and a codegen
+# bug it exposed once fixed -- see examples/ex15.pudl and ex16.pudl --
+# aren't error-path regressions, so they're golden-file examples
+# instead of checks here.)
 #
 # Usage: test_parser_error_recovery.sh <path-to-pudl-binary>
 
@@ -92,5 +101,9 @@ check "binary operator with missing rhs" "tests/regression/binary_operator_missi
   "expression expected after"
 check "integer literal overflow" "tests/regression/integer_literal_overflow.pudl" \
   "is out of range"
+check "variable redeclaration" "tests/regression/variable_redeclaration.pudl" \
+  "is already declared"
+check "if with non-bool condition" "tests/regression/if_non_bool_condition.pudl" \
+  "expected boolean expression"
 
 exit $fail

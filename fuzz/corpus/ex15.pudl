@@ -1,0 +1,15 @@
+# Recursion. Before this was fixed, a function wasn't registered as
+# callable until its own body had finished parsing, so a call to itself
+# inside that body -- direct recursion -- failed to parse at all
+# ("function `fact` is undefined"). Correct output is 120 (5!).
+func fact( int n ) : int {
+  if n <= 1 {
+    return 1
+  }
+  return n * fact( n - 1 )
+}
+
+func mast : int {
+  print fact( 5 )
+  return 0
+}

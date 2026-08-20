@@ -1,0 +1,22 @@
+# A function whose last statement is an if/else where *both* branches
+# return, with nothing following. Before this was fixed, visit(IfStatementNode)
+# unconditionally added a branch to a shared "Merge" block after each
+# branch's own code -- when a branch already ended in `return` (its own
+# block terminator), that produced invalid IR (two terminators in one
+# block), which the optimizer silently mishandled by discarding the
+# whole `if` structure rather than erroring: sign() always returned
+# whatever the *last* generated branch happened to compute, regardless
+# of the actual condition. Correct output is "1" then "-1".
+func sign( int n ) : int {
+  if n > 0 {
+    return 1
+  } else {
+    return -1
+  }
+}
+
+func mast : int {
+  print sign( 5 )
+  print sign( -3 )
+  return 0
+}

@@ -1,0 +1,11 @@
+# Regression fixture: `if`/`do`-`while` used to accept any numeric
+# expression as a C-style truthy/falsy condition -- inconsistent with
+# `while`, which already required `bool`, and with the language's "no
+# implicit bool/numeric conversion" rule everywhere else. Must now be a
+# parse error, same as a non-bool `while` condition already was.
+func mast : int {
+  if 1 {
+    print 1
+  }
+  return 0
+}

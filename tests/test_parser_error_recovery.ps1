@@ -76,5 +76,9 @@ if (-not (Test-NoCrash "binary operator with missing rhs" "tests/regression/bina
         "expression expected after")) { $fail = $true }
 if (-not (Test-NoCrash "integer literal overflow" "tests/regression/integer_literal_overflow.pudl" `
         "is out of range")) { $fail = $true }
+if (-not (Test-NoCrash "variable redeclaration" "tests/regression/variable_redeclaration.pudl" `
+        "is already declared")) { $fail = $true }
+if (-not (Test-NoCrash "if with non-bool condition" "tests/regression/if_non_bool_condition.pudl" `
+        "expected boolean expression")) { $fail = $true }
 
 if ($fail) { exit 1 } else { exit 0 }

@@ -1,0 +1,15 @@
+.-------------------------------.
+| Pudl Language Compiler v0.1.0 |
+'-------------------------------'
+Loading source file examples/ex15.pudl
+No optimization level specified, using level -Oall
+Optimization: instruction combining, 
+	 promote allocas to registers, 
+	 reassociate, 
+	 dead code elimination, 
+	 global value numbering, 
+	 simplify CFG
+
+Executing -----------------------
+
+120

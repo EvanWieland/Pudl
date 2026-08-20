@@ -335,5 +335,11 @@ public:
 
     StatementNode *getBody() { return body; }
 
+    // Lets Parser::functionDef() register a function (name/args/type
+    // known) before its body has been parsed, so a call to itself inside
+    // that body -- direct recursion -- can already resolve. See
+    // functionDef() for why this two-step construction exists.
+    void setBody(StatementNode *aBody) { body = aBody; }
+
     void accept(ASTVisitor &aVisitor);
 };
