@@ -153,6 +153,16 @@ public:
         return module;
     }
 
+    // True once error() has been called anywhere during codegen. Callers
+    // (main.cpp) must check this before compiling/linking/running: nothing
+    // in Codegen stops generating IR into `module` just because an earlier
+    // node failed (the per-visit() guards below only stop that specific
+    // node's own subtree), so the module can be left structurally broken
+    // even though root->accept(codegen) itself returns normally.
+    bool isFailed() {
+        return !isSuccess;
+    }
+
     // Promote allocas to registers.
     void opt_promote_to_reg() {
         passManager->add(createPromoteMemoryToRegisterPass());
@@ -506,7 +516,9 @@ public:
         TType rhsTy = aNode.getRHS()->getType();
 
         aNode.getLHS()->accept((*this));
+        if (!isSuccess) { return NULL; }
         aNode.getRHS()->accept((*this));
+        if (!isSuccess) { return NULL; }
 
         Value *rhs = operands.top();
         operands.pop();
@@ -546,7 +558,9 @@ public:
         TType rhsTy = aNode.getRHS()->getType();
 
         aNode.getLHS()->accept((*this));
+        if (!isSuccess) { return NULL; }
         aNode.getRHS()->accept((*this));
+        if (!isSuccess) { return NULL; }
 
         Value *rhs = operands.top();
         operands.pop();
@@ -595,7 +609,9 @@ public:
         TType rhsTy = aNode.getRHS()->getType();
 
         aNode.getLHS()->accept((*this));
+        if (!isSuccess) { return NULL; }
         aNode.getRHS()->accept((*this));
+        if (!isSuccess) { return NULL; }
 
         Value *rhs = operands.top();
         operands.pop();
@@ -623,7 +639,12 @@ public:
         if (op == "+" || op == "-" || op == "*" || op == "/") {
             Value *res = biarithmetic(aNode);
             if (res == NULL) {
-                error("unknown error");
+                // A NULL result can mean either a genuine unhandled-op bug
+                // here, or that biarithmetic() already stopped and reported
+                // a real error (undefined variable, etc.) further down --
+                // don't paper over the latter with a second, confusing
+                // "unknown error".
+                if (isSuccess) { error("unknown error"); }
                 return;
             }
             operands.push(res);
@@ -634,14 +655,14 @@ public:
                 ) {
             Value *res = birel(aNode);
             if (res == NULL) {
-                error("unknown error");
+                if (isSuccess) { error("unknown error"); }
                 return;
             }
             operands.push(res);
         } else if (op == "&&" || op == "||" || op == "^") {
             Value *res = bilog(aNode);
             if (res == NULL) {
-                error("unknown error");
+                if (isSuccess) { error("unknown error"); }
                 return;
             }
             operands.push(res);
@@ -651,6 +672,7 @@ public:
     Value *unarithmetic(UnaryNode aNode) {
         TType ty = aNode.getType();
         aNode.getSubexpr()->accept((*this));
+        if (!isSuccess) { return nullptr; }
         Value *val = pop();
         if (ty == TType::FLOAT) {
             return builder.CreateFNeg(val);
@@ -662,6 +684,7 @@ public:
 
     Value *unlog(UnaryNode aNode) {
         aNode.getSubexpr()->accept((*this));
+        if (!isSuccess) { return nullptr; }
         Value *val = pop();
         return builder.CreateNot(val);
     }
@@ -673,14 +696,14 @@ public:
         if (op == "-") {
             Value *res = unarithmetic(aNode);
             if (res == NULL) {
-                error("unknown error");
+                if (isSuccess) { error("unknown error"); }
                 return;
             }
             operands.push(res);
         } else if (op == "!") {
             Value *res = unlog(aNode);
             if (res == NULL) {
-                error("unknown error");
+                if (isSuccess) { error("unknown error"); }
                 return;
             }
             operands.push(res);
@@ -703,7 +726,7 @@ public:
         FunctionDefNode *ast = astFuncs[aNode.getName()];
 
         if (func == NULL) {
-            std::cout << "undefined function " << aNode.getName() << std::endl;
+            error("undefined function " + aNode.getName());
             return;
         }
 
@@ -712,14 +735,17 @@ public:
         std::vector<Value *> argsVal;
 
         if (args.size() != astArgs.size()) {
-            std::cout << "excepted " << astArgs.size() << " arguments but given "
-                      << args.size() << std::endl;
+            error(
+                    "expected " + std::to_string(astArgs.size()) + " arguments but given "
+                    + std::to_string(args.size())
+            );
             return;
         }
 
         int idx(0);
         for (ExpressionNode *arg: args) {
             arg->accept((*this));
+            if (!isSuccess) { return; }
 
             Value *res = operands.top();
             operands.pop();
@@ -779,12 +805,21 @@ public:
 
         aNode.getBody()->accept((*this));
 
+        // A body that bailed out partway through an error (see the
+        // isSuccess guards throughout this class) can leave `func` missing
+        // a terminator on some path -- running the optimizer on
+        // structurally invalid IR is exactly the kind of thing that
+        // crashes LLVM's pass infrastructure rather than just producing
+        // wrong output.
+        if (!isSuccess) { return; }
+
         passManager->run(*func);
     }
 
     void visit(BlockStatementNode aNode) {
         for (StatementNode *node: aNode.getStatements()) {
             node->accept((*this));
+            if (!isSuccess) { return; }
         }
     }
 
@@ -792,6 +827,7 @@ public:
     void visit(IfStatementNode aNode) {
         Function *func = funcs[currentFunc->getName()];
         aNode.getCond()->accept((*this));
+        if (!isSuccess) { return; }
         Value *cond = pop();
 
         BasicBlock *thenBb = BasicBlock::Create(getGlobalContext(), "Then", func);
@@ -830,6 +866,7 @@ public:
 
         builder.SetInsertPoint(loopBb);
         aNode.getCond()->accept((*this));
+        if (!isSuccess) { return; }
         Value *cond = pop();
 
         builder.CreateCondBr(cond, thenBb, afterBb);
@@ -855,7 +892,9 @@ public:
 
         builder.SetInsertPoint(loopBb);
         aNode.getBody()->accept((*this));
+        if (!isSuccess) { return; }
         aNode.getCond()->accept((*this));
+        if (!isSuccess) { return; }
         Value *cond = pop();
         builder.CreateCondBr(cond, loopBb, afterBb);
 
@@ -873,6 +912,7 @@ public:
     */
     void visit(IoPrintNode aNode) {
         aNode.getSubexpr()->accept((*this));
+        if (!isSuccess) { return; }
 
         std::vector<Value *> args;
         std::vector<Value *> idx;
@@ -910,6 +950,7 @@ public:
     */
     void visit(ReturnNode aNode) {
         aNode.getSubexpr()->accept((*this));
+        if (!isSuccess) { return; }
 
         Value *res = operands.top();
         operands.pop();

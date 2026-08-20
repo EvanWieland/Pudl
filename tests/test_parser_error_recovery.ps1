@@ -14,7 +14,7 @@ $RepoRoot = Split-Path -Parent $ScriptDir
 
 $fail = $false
 
-function Test-NoCrash([string]$Name, [string]$Src, [string]$ExpectedText = "") {
+function Test-NoCrash([string]$Name, [string]$Src, [string]$ExpectedText = "", [string]$ForbiddenText = "") {
     Push-Location $RepoRoot
     try {
         # See run_golden_tests.ps1's Invoke-Pudl for why this goes through
@@ -41,6 +41,11 @@ function Test-NoCrash([string]$Name, [string]$Src, [string]$ExpectedText = "") {
         return $false
     }
 
+    if ($ForbiddenText -and $output.Contains($ForbiddenText)) {
+        Write-Host "FAIL: $Name unexpectedly did '$ForbiddenText'"
+        return $false
+    }
+
     Write-Host "PASS: $Name did not crash (exit code $code)"
     return $true
 }
@@ -48,5 +53,7 @@ function Test-NoCrash([string]$Name, [string]$Src, [string]$ExpectedText = "") {
 if (-not (Test-NoCrash "undefined function call" "tests/regression/undefined_function.pudl")) { $fail = $true }
 if (-not (Test-NoCrash "undeclared variable assignment" "tests/regression/undeclared_assignment.pudl")) { $fail = $true }
 if (-not (Test-NoCrash "unary ! type mismatch" "tests/regression/unary_type_mismatch.pudl" "expected boolean but given number")) { $fail = $true }
+if (-not (Test-NoCrash "codegen error must not run" "tests/regression/codegen_error_no_run.pudl" `
+        "Codegen failed; not compiling, linking, or running." "Executing -----------------------")) { $fail = $true }
 
 if ($fail) { exit 1 } else { exit 0 }

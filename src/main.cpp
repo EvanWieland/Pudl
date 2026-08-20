@@ -222,34 +222,43 @@ int main(int argc, char *argv[]) {
             std::cout << std::endl;
             root->accept(codegen);
 
-            if (compile) {
-                // Equivalence: gcc foo.pudl -c foo.o >> foo.o
-                codegen.compile(cOut.c_str());
-            }
-
-            if (link) {
-                if (isSourceFile) {
-                    // Equivalence: gcc foo.pudl -o foo >> foo
-                    codegen.linkSource(oOut.c_str(), linker.c_str());
-                } else {
-                    // Equivalence: gcc foo.o -o foo >> foo
-                    codegen.linkObject(argv[1], oOut.c_str(), linker.c_str());
+            // The per-node guards inside Codegen only stop that node's own
+            // subtree from generating further IR after an error -- nothing
+            // stops compile/link/run from being attempted against whatever
+            // (possibly structurally invalid) IR was produced regardless,
+            // unless it's checked here.
+            if (codegen.isFailed()) {
+                std::cerr << "Codegen failed; not compiling, linking, or running." << std::endl;
+            } else {
+                if (compile) {
+                    // Equivalence: gcc foo.pudl -c foo.o >> foo.o
+                    codegen.compile(cOut.c_str());
                 }
-            }
 
-            // Run input file if no compile or link steps are requested
-            if (!link && !compile) {
-                if (isSourceFile) {
-                    codegen.runSource();
-                } else {
-                    if (linker.empty()) {
-                        std::cout << "No linker was specified for linker step." << std::endl;
-                        linker = LinkerCmd;
+                if (link) {
+                    if (isSourceFile) {
+                        // Equivalence: gcc foo.pudl -o foo >> foo
+                        codegen.linkSource(oOut.c_str(), linker.c_str());
+                    } else {
+                        // Equivalence: gcc foo.o -o foo >> foo
+                        codegen.linkObject(argv[1], oOut.c_str(), linker.c_str());
                     }
+                }
 
-                    std::cout << "Using linker: " << linker << std::endl;
+                // Run input file if no compile or link steps are requested
+                if (!link && !compile) {
+                    if (isSourceFile) {
+                        codegen.runSource();
+                    } else {
+                        if (linker.empty()) {
+                            std::cout << "No linker was specified for linker step." << std::endl;
+                            linker = LinkerCmd;
+                        }
 
-                    codegen.runObject(argv[1], linker.c_str());
+                        std::cout << "Using linker: " << linker << std::endl;
+
+                        codegen.runObject(argv[1], linker.c_str());
+                    }
                 }
             }
 

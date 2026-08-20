@@ -1,0 +1,13 @@
+# Regression case: a function called with the wrong number of arguments
+# passes parsing (Parser::funcall() never checks arg count against the
+# function's declared parameters) and only fails at codegen time
+# (Codegen::visit(FuncallNode)'s args.size() != astArgs.size() check).
+# Before this fix, that check printed a message directly to stdout without
+# ever setting the codegen failure flag, so main.cpp went on to run the
+# broken IR anyway. It must now refuse to compile/link/run.
+func inc( int a ) : int return a + 1
+
+func mast : int {
+  print inc(1, 2)
+  return 0
+}
