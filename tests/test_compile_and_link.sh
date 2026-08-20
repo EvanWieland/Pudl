@@ -23,13 +23,13 @@ BIN="$1"
 cd "$REPO_ROOT"
 
 OUT_EXE="./pudl_test_compile_and_link_exe"
-rm -f "$OUT_EXE" temp.o TempLinker.cpp
+rm -f "$OUT_EXE" temp_*.o TempLinker_*.cpp
 
 "$BIN" examples/main.pudl -o "$OUT_EXE" >/dev/null 2>&1
 
 if [ ! -x "$OUT_EXE" ]; then
   echo "FAIL: -o did not produce a runnable executable"
-  rm -f "$OUT_EXE" temp.o TempLinker.cpp
+  rm -f "$OUT_EXE" temp_*.o TempLinker_*.cpp
   exit 1
 fi
 
@@ -41,7 +41,7 @@ expected="1
 10
 0"
 
-rm -f "$OUT_EXE" temp.o TempLinker.cpp
+rm -f "$OUT_EXE" temp_*.o TempLinker_*.cpp
 
 if [ "$actual" != "$expected" ]; then
   echo "FAIL: compiled+linked executable produced wrong output"

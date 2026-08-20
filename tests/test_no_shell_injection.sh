@@ -41,5 +41,5 @@ else
   echo "PASS: no shell injection via -o/-l values"
 fi
 
-rm -f "$MARKER" "pwned_out; touch $MARKER" TempLinker.cpp temp.o
+rm -f "$MARKER" "pwned_out; touch $MARKER" TempLinker_*.cpp temp_*.o
 exit $status

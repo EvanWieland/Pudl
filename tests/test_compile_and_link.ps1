@@ -14,7 +14,8 @@ $RepoRoot = Split-Path -Parent $ScriptDir
 Push-Location $RepoRoot
 try {
     $outExe = Join-Path $RepoRoot "pudl_test_compile_and_link_exe.exe"
-    Remove-Item -Path $outExe, "temp.o", "TempLinker.cpp" -ErrorAction SilentlyContinue
+    Remove-Item -Path $outExe -ErrorAction SilentlyContinue
+    Remove-Item -Path "temp_*.o", "TempLinker_*.cpp" -ErrorAction SilentlyContinue
 
     # See run_golden_tests.ps1's Invoke-Pudl for why this goes through
     # cmd.exe rather than PowerShell's own `&`-plus-redirection -- also
@@ -28,7 +29,8 @@ try {
         Write-Host "FAIL: -o did not produce a runnable executable"
         Write-Host "--- pudl output ---"
         Write-Host $buildOutput
-        Remove-Item -Path $outExe, "temp.o", "TempLinker.cpp" -ErrorAction SilentlyContinue
+        Remove-Item -Path $outExe -ErrorAction SilentlyContinue
+    Remove-Item -Path "temp_*.o", "TempLinker_*.cpp" -ErrorAction SilentlyContinue
         exit 1
     }
 
@@ -39,7 +41,8 @@ try {
     # printed.
     $expected = "1`n10`n0"
 
-    Remove-Item -Path $outExe, "temp.o", "TempLinker.cpp" -ErrorAction SilentlyContinue
+    Remove-Item -Path $outExe -ErrorAction SilentlyContinue
+    Remove-Item -Path "temp_*.o", "TempLinker_*.cpp" -ErrorAction SilentlyContinue
 
     if ($actual -ne $expected) {
         Write-Host "FAIL: compiled+linked executable produced wrong output"

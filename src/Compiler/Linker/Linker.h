@@ -9,8 +9,6 @@
 
 #include "../Process.h"
 
-#define LinkerProgram "TempLinker.cpp"
-
 class Linker {
 private:
     inline static const std::string program = R"(
@@ -62,17 +60,21 @@ public:
     }
 
     static int Link(const char *inPath, const char *outPath, const char *linker) {
+        // Unique per call so two concurrent `pudl` invocations in the same
+        // directory don't clobber each other's throwaway linker source.
+        std::string linkerProgram = Process::UniqueTempPath("TempLinker", ".cpp");
+
         // save raw program to file for linking
-        std::ofstream out(LinkerProgram);
+        std::ofstream out(linkerProgram);
         out << program;
         out.close();
 
         std::vector<std::string> args;
         if (isMsvcCl(linker)) {
             std::string outArg = std::string("/Fe:") + outPath;
-            args = {linker, LinkerProgram, inPath, "/EHsc", "/nologo", outArg};
+            args = {linker, linkerProgram, inPath, "/EHsc", "/nologo", outArg};
         } else {
-            args = {linker, LinkerProgram, inPath, "-o", outPath};
+            args = {linker, linkerProgram, inPath, "-o", outPath};
         }
 
         int result = Process::Run(args);
@@ -84,7 +86,7 @@ public:
             return 1;
         }
 
-        if (remove(LinkerProgram) != 0) {
+        if (remove(linkerProgram.c_str()) != 0) {
             std::cout << "Failed to remove temp linker file" << std::endl;
             return 1;
         }

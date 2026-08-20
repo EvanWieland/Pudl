@@ -257,7 +257,9 @@ public:
     }
 
     void runSource() {
-        std::string irOutput = "./out.ll";
+        // Unique per call so two concurrent `pudl` invocations in the same
+        // directory don't clobber (or race-delete) each other's scratch IR.
+        std::string irOutput = Process::UniqueTempPath("out", ".ll");
 
         std::error_code EC;
         raw_fd_ostream dest(irOutput, EC, sys::fs::OF_None);
@@ -300,7 +302,8 @@ public:
     }
 
     void runObject(const char *cInPath, const char *linker) {
-        std::string oOutPath = "out";
+        // Unique per call -- see runSource()'s comment above.
+        std::string oOutPath = Process::UniqueTempPath("pudl_run", "");
 
         linkObject(cInPath, oOutPath.c_str(), linker);
 
@@ -320,22 +323,23 @@ public:
      * @param linker Linker command
      */
     void linkSource(const char *oOutPath, const char *linker) {
-        const char *cOutPath = "temp.o";
+        // Unique per call -- see runSource()'s comment above.
+        std::string cOutPath = Process::UniqueTempPath("temp", ".o");
 
         // Compile source to object file
-        if (compile(cOutPath) != 0) {
+        if (compile(cOutPath.c_str()) != 0) {
             std::cerr << "ERROR@COMPILE: Compilation failed" << std::endl;
             return;
         }
 
         // Link source object file with linker
-        if (Linker::Link(cOutPath, oOutPath, linker) != 0) {
+        if (Linker::Link(cOutPath.c_str(), oOutPath, linker) != 0) {
             std::cerr << "ERROR@LINK: Linking failed" << std::endl;
             isSuccess = false;
         }
 
         // Delete temp compile file after linking
-        if (std::remove(cOutPath) != 0) {
+        if (std::remove(cOutPath.c_str()) != 0) {
             std::cerr << "ERROR@LINK: Deletion of temp compile file failed" << std::endl;
         }
     }

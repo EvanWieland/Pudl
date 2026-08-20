@@ -1,5 +1,8 @@
 #include "Process.h"
 
+#include <atomic>
+#include <sstream>
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -162,4 +165,18 @@ std::string Process::Detect(const std::vector<std::string> &candidates, const st
         }
     }
     return candidates.empty() ? "" : candidates[0];
+}
+
+std::string Process::UniqueTempPath(const std::string &prefix, const std::string &extension) {
+    static std::atomic<unsigned long> counter{0};
+
+#ifdef _WIN32
+    unsigned long pid = static_cast<unsigned long>(GetCurrentProcessId());
+#else
+    unsigned long pid = static_cast<unsigned long>(getpid());
+#endif
+
+    std::ostringstream oss;
+    oss << prefix << "_" << pid << "_" << counter.fetch_add(1) << extension;
+    return oss.str();
 }

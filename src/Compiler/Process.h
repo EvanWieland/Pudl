@@ -42,4 +42,16 @@ public:
      *         in their own error output rather than an empty string).
      */
     static std::string Detect(const std::vector<std::string> &candidates, const std::string &probeArg = "--version");
+
+    /**
+     * Returns a filename unlikely to collide with any other Pudl process
+     * (or any other call to this function within the same process):
+     * "<prefix>_<pid>_<n><extension>" in the current working directory.
+     * Used for scratch files (the compiler's intermediate object file, the
+     * linker's throwaway main()-wrapper source, ...) that are created and
+     * removed within a single call -- a fixed name like "temp.o" would
+     * collide if two `pudl` invocations ran concurrently in the same
+     * directory.
+     */
+    static std::string UniqueTempPath(const std::string &prefix, const std::string &extension);
 };

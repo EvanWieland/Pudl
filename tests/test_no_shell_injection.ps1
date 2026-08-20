@@ -33,7 +33,7 @@ if (Test-Path $Marker) {
 }
 
 Remove-Item -Path $Marker -ErrorAction SilentlyContinue
-Remove-Item -Path (Join-Path $RepoRoot "TempLinker.cpp") -ErrorAction SilentlyContinue
-Remove-Item -Path (Join-Path $RepoRoot "temp.o") -ErrorAction SilentlyContinue
+Remove-Item -Path (Join-Path $RepoRoot "TempLinker_*.cpp") -ErrorAction SilentlyContinue
+Remove-Item -Path (Join-Path $RepoRoot "temp_*.o") -ErrorAction SilentlyContinue
 
 if ($fail) { exit 1 } else { exit 0 }
