@@ -24,8 +24,16 @@ list(REMOVE_ITEM CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 add_library(pudl_core STATIC ${CORE_SOURCES})
 target_include_directories(pudl_core PUBLIC src)
 
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" PUDL_VERSION LIMIT_COUNT 1)
+configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Version.h.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/Version.h"
+        @ONLY
+)
+
 add_executable(${PROJECT_NAME} src/main.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE pudl_core)
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 set(TARGET_WebAssembly WebAssemblyCodeGen WebAssemblyAsmParser WebAssemblyDesc WebAssemblyInfo)
 set(TARGET_XCore XCoreCodeGen XCoreDesc XCoreInfo)
@@ -92,6 +100,26 @@ llvm_map_components_to_libnames(
 )
 
 target_link_libraries(pudl_core PUBLIC ${llvm_libs})
+
+# Off by default: needs clang (libFuzzer isn't available for GCC/MSVC).
+# Compiles its own copy of CORE_SOURCES directly into the fuzz executable
+# rather than linking pudl_core, and puts every -fsanitize=fuzzer,... flag
+# on that one target via target_compile_options/target_link_options rather
+# than CMAKE_CXX_FLAGS -- global flags would also reach CMake's own
+# internal "does this compiler work" test program, which then fails to
+# link (libFuzzer's runtime provides its own main(), colliding with that
+# test program's). Scoping to the target avoids that entirely, and means
+# a plain build of `pudl` never needs to know this option exists.
+option(PUDL_ENABLE_FUZZING "Build the libFuzzer harness in fuzz/ (needs clang)" OFF)
+if (PUDL_ENABLE_FUZZING)
+    add_executable(pudl_fuzz_pipeline fuzz/fuzz_pipeline.cpp ${CORE_SOURCES})
+    target_include_directories(pudl_fuzz_pipeline PRIVATE src)
+    target_link_libraries(pudl_fuzz_pipeline PRIVATE ${llvm_libs})
+    target_compile_options(pudl_fuzz_pipeline PRIVATE
+            -fsanitize=fuzzer,address,undefined -fno-sanitize-recover=all -g)
+    target_link_options(pudl_fuzz_pipeline PRIVATE
+            -fsanitize=fuzzer,address,undefined)
+endif ()
 
 enable_testing()
 

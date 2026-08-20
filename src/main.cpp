@@ -7,13 +7,24 @@
 #include "Parser/Codegen.h"
 #include "Parser/Parser.h"
 #include "Compiler/CLIManager.h"
+#include "Version.h"
 
 int main(int argc, char *argv[]) {
 
+    // Width computed from the banner text itself, not hardcoded to match
+    // "v.0.0.1"'s length -- a version bump used to silently misalign the
+    // box (see VERSION/Version.h.in for the single source of truth).
+    std::string banner = " Pudl Language Compiler v" + std::string(PUDL_VERSION) + " ";
+    std::cout << "." << std::string(banner.size(), '-') << "." << std::endl
+              << "|" << banner << "|" << std::endl
+              << "'" << std::string(banner.size(), '-') << "'" << std::endl;
 
-    std::cout << ".--------------------------------." << std::endl
-              << "| Pudl Language Compiler v.0.0.1 |" << std::endl
-              << "'--------------------------------'" << std::endl;
+    CLIManager cli(argc, argv);
+
+    if (cli.hasOption("--version") || cli.hasOption("-v")) {
+        std::cout << PUDL_VERSION << std::endl;
+        return 0;
+    }
 
     bool isSourceFile = false;
     bool compile = false;
@@ -21,11 +32,9 @@ int main(int argc, char *argv[]) {
     bool printIR = false;
     bool debug = false;
 
-    CLIManager cli(argc, argv);
-
     if (argc < 2 || cli.hasOption("--help") || cli.hasOption("-h")) {
         std::string help = R"(
-        ./pudl.sh <file> [--help,-h]  [-p,--print-ir <out file>] [-c,--compile <out file>] [-o, --output <out file>] [-O<N>] [-l,--linker <linker>]
+        ./pudl.sh <file> [--help,-h] [--version,-v] [-p,--print-ir <out file>] [-c,--compile <out file>] [-o, --output <out file>] [-O<N>] [-l,--linker <linker>]
 
         Options:
         <file>                The file to run.
@@ -35,8 +44,9 @@ int main(int argc, char *argv[]) {
         -c, --compile         Compile the source file to an object file
         -o, --output          Create an executable output file
         -l, --linker          Linker command to call when linking object files.
-                                                                         - Default: clang++-13
-                                                                                    -h, --help            Get usage and available options
+                                                                         - Default: autodetected (see Linker::DetectDefault)
+        -h, --help            Get usage and available options
+        -v, --version         Print the Pudl version and exit
         -p  --print-ir        Print generated LLVM IR to stdout or to a file
         -d, --debug           Print debug information
 

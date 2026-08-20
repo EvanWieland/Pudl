@@ -1,6 +1,6 @@
-.--------------------------------.
-| Pudl Language Compiler v.0.0.1 |
-'--------------------------------'
+.-------------------------------.
+| Pudl Language Compiler v0.1.0 |
+'-------------------------------'
 Loading source file examples/ex14.pudl
 No optimization level specified, using level -Oall
 Optimization: instruction combining, 

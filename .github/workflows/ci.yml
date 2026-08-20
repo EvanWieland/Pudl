@@ -133,3 +133,88 @@ jobs:
       - name: Test
         working-directory: build
         run: ctest --output-on-failure
+
+  # Runs the same golden/regression suite as build-and-test, but built with
+  # ASan+UBSan -- catches memory-safety/UB regressions (the class of bug
+  # that produced the ex9.pudl while-loop segfault and the currentFunc
+  # dangling pointer, both found by manual sanitizer runs during Phase 4)
+  # automatically on every push instead of only when someone remembers to
+  # run one by hand. No new tests to write or maintain: it's the existing
+  # suite, just built differently.
+  sanitize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Install LLVM 18
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            llvm-18-dev clang-18 libpolly-18-dev libedit-dev zlib1g-dev ninja-build
+          echo "LLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm" >> "$GITHUB_ENV"
+          sudo ln -sf /usr/bin/lli-18 /usr/local/bin/lli
+
+      - name: Configure (ASan + UBSan)
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DLLVM_DIR="$LLVM_DIR" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -g -O1" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        working-directory: build
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: ctest --output-on-failure
+
+  # 60s bounded libFuzzer smoke run against the lexer/parser/codegen
+  # pipeline (see fuzz/fuzz_pipeline.cpp) on every push. This already found
+  # three real bugs the first time it ran locally: an infinite loop, a
+  # null-pointer dereference, and an uncaught std::out_of_range crash, none
+  # of which the golden-file suite's hand-picked examples exercised.
+  # fuzz/corpus is a curated read-only seed set (kept small deliberately --
+  # see fuzz_pipeline.cpp) and is never written to; anything the fuzzer
+  # discovers goes into a scratch directory that isn't persisted.
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Install LLVM 18 + libFuzzer
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            llvm-18-dev clang-18 libpolly-18-dev libedit-dev zlib1g-dev ninja-build \
+            libclang-rt-18-dev libfuzzer-18-dev
+          echo "LLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-fuzz -G Ninja -DLLVM_DIR="$LLVM_DIR" \
+            -DPUDL_ENABLE_FUZZING=ON -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+
+      - name: Build
+        run: cmake --build build-fuzz --target pudl_fuzz_pipeline
+
+      - name: Fuzz (60s smoke run)
+        run: |
+          mkdir -p /tmp/pudl-fuzz-scratch
+          ./build-fuzz/pudl_fuzz_pipeline -max_total_time=60 -timeout=5 \
+            /tmp/pudl-fuzz-scratch fuzz/corpus
+
+      - name: Upload crash reproducer
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crash
+          path: crash-*
+          if-no-files-found: ignore
