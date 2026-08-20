@@ -25,29 +25,29 @@ public:
     Printer() {}
 
     // [node]*
-    void visit(VectorNode aNode) {
+    void visit(VectorNode &aNode) {
         for (Node *node: aNode.getNodes()) {
             node->accept((*this));
         }
     }
 
-    void visit(DummyNode aNode) {
+    void visit(DummyNode &aNode) {
         std::cout << " [dummy]";
     }
 
     // [<type> <name>]
-    void visit(VarNode aNode) {
+    void visit(VarNode &aNode) {
         std::cout << " [" << show(aNode.getType())
                   << " " << aNode.getName() << "]";
     }
 
     // [<value>I]
-    void visit(IntegerNode aNode) {
+    void visit(IntegerNode &aNode) {
         std::cout << " [" << aNode.getValue() << "I]";
     }
 
     // [True] or [False]
-    void visit(BooleanNode aNode) {
+    void visit(BooleanNode &aNode) {
         if (aNode.getValue()) {
             std::cout << " [True]";
         } else {
@@ -56,12 +56,12 @@ public:
     }
 
     // [<value>F]
-    void visit(FloatNode aNode) {
+    void visit(FloatNode &aNode) {
         std::cout << " [" << aNode.getValue() << "F]";
     }
 
     // (Assign <variable> <expression>)
-    void visit(AssignmentNode aNode) {
+    void visit(AssignmentNode &aNode) {
         std::cout << " (Assign ";
         aNode.getLHS()->accept((*this));
         aNode.getRHS()->accept((*this));
@@ -69,7 +69,7 @@ public:
     }
 
     // (<operator> <lhs> <rhs>)
-    void visit(BinaryNode aNode) {
+    void visit(BinaryNode &aNode) {
         std::cout << " (" << showOperator(aNode.getOp()) << " ";
         aNode.getLHS()->accept((*this));
         aNode.getRHS()->accept((*this));
@@ -77,14 +77,14 @@ public:
     }
 
     // (<operator> <subexpr>)
-    void visit(UnaryNode aNode) {
+    void visit(UnaryNode &aNode) {
         std::cout << " (" << showOperator(aNode.getOp()) << " ";
         aNode.getSubexpr()->accept((*this));
         std::cout << ")";
     }
 
     // (Call <name> : ( [arg]* ) -> <type>)
-    void visit(FuncallNode aNode) {
+    void visit(FuncallNode &aNode) {
         std::cout << " (Call " << aNode.getName() << " : (";
         for (ExpressionNode *node: aNode.getArgs()) {
             node->accept((*this));
@@ -93,7 +93,7 @@ public:
     }
 
     // (Func <name> : ( [arg]* ) -> <type> <body>)
-    void visit(FunctionDefNode aNode) {
+    void visit(FunctionDefNode &aNode) {
         std::cout << " (Func " << aNode.getName() << " : (";
         for (VarNode *node: aNode.getArgs()) {
             node->accept((*this));
@@ -105,7 +105,7 @@ public:
     }
 
     // { [statement]* }
-    void visit(BlockStatementNode aNode) {
+    void visit(BlockStatementNode &aNode) {
         std::cout << " {";
         for (StatementNode *node: aNode.getStatements()) {
             node->accept((*this));
@@ -115,7 +115,7 @@ public:
     }
 
     // (If <expression> <statement> (Else <statement>)?
-    void visit(IfStatementNode aNode) {
+    void visit(IfStatementNode &aNode) {
         std::cout << " (If ";
         aNode.getCond()->accept((*this));
         aNode.getTrueBranch()->accept((*this));
@@ -128,7 +128,7 @@ public:
     }
 
     // (While <expression> <statement>)
-    void visit(WhileStatementNode aNode) {
+    void visit(WhileStatementNode &aNode) {
         std::cout << " (While ";
         aNode.getCond()->accept((*this));
         aNode.getBody()->accept((*this));
@@ -136,7 +136,7 @@ public:
     }
 
     // (Do <statement> While <expression>)
-    void visit(DoWhileStatementNode aNode) {
+    void visit(DoWhileStatementNode &aNode) {
         std::cout << " (Do ";
         aNode.getBody()->accept((*this));
         std::cout << " While ";
@@ -145,19 +145,19 @@ public:
     }
 
     // <expression>
-    void visit(ExpressionWrapperNode aNode) {
+    void visit(ExpressionWrapperNode &aNode) {
         aNode.getExpr()->accept((*this));
     }
 
     // (Print <expression>)
-    void visit(IoPrintNode aNode) {
+    void visit(IoPrintNode &aNode) {
         std::cout << " (Print ";
         aNode.getSubexpr()->accept((*this));
         std::cout << ")";
     }
 
     // (Ret <expression>)
-    void visit(ReturnNode aNode) {
+    void visit(ReturnNode &aNode) {
         std::cout << " (Ret ";
         aNode.getSubexpr()->accept((*this));
         std::cout << ")";

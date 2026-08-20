@@ -39,10 +39,10 @@ bool Parser::is(Token aToken, TokenType aExpectedType, bool aSuppress) {
 \return AST root
 */
 Node *Parser::parse(FILE *aFile) {
-    lexer = new Lexer(aFile);
+    lexer = std::make_unique<Lexer>(aFile);
 
     next();
-    VectorNode *root = new VectorNode(std::vector<Node *>());
+    VectorNode *root = arena.construct<VectorNode>(std::vector<Node *>());
     while (1) {
         info("first! >> ");
         Token t = current;
@@ -50,12 +50,12 @@ Node *Parser::parse(FILE *aFile) {
 
         switch (t.getType()) {
             case ERROR_TOKEN:
-                return new DummyNode();
+                return arena.construct<DummyNode>();
             case EOF_TOKEN:
                 return root;
             case FUNC: {
                 FunctionDefNode *def = functionDef();
-                if (def == NULL) { return new DummyNode(); }
+                if (def == NULL) { return arena.construct<DummyNode>(); }
                 root->insert(def);
                 break;
             }
@@ -65,7 +65,7 @@ Node *Parser::parse(FILE *aFile) {
         }
     }
 
-    return new DummyNode();
+    return arena.construct<DummyNode>();
 }
 
 // function-definition
@@ -105,7 +105,7 @@ FunctionDefNode *Parser::functionDef() {
     StatementNode *body = statement();
     if (body == NULL) { return NULL; }
 
-    FunctionDefNode *func = new FunctionDefNode(name, args, body, type);
+    FunctionDefNode *func = arena.construct<FunctionDefNode>(name, args, body, type);
     funcs.insert(std::pair<std::string, FunctionDefNode *>(name, func));
     return func;
 }
@@ -120,7 +120,7 @@ std::vector<VarNode *> Parser::functionArgs() {
         Token ty = current;
         if (!is(next(), SYMBOL)) { return args; }
         Token var = current;
-        VarNode *arg = new VarNode(var.getLexeme(), fromString(ty.getLexeme()));
+        VarNode *arg = arena.construct<VarNode>(var.getLexeme(), fromString(ty.getLexeme()));
         args.push_back(arg);
 
         next();
@@ -204,7 +204,7 @@ ReturnNode *Parser::ret() {
         error(tmp.getLine(), "expression expected after `return`");
         return NULL;
     }
-    return new ReturnNode(expr);
+    return arena.construct<ReturnNode>(expr);
 }
 
 // io-print ::= Print <expression>
@@ -216,7 +216,7 @@ IoPrintNode *Parser::ioPrint() {
         error(tmp.getLine(), "expression expected after `print`");
         return NULL;
     }
-    return new IoPrintNode(expr);
+    return arena.construct<IoPrintNode>(expr);
 }
 
 // if-stmt := If \( <expression : bool> \) <statement>
@@ -235,9 +235,9 @@ IfStatementNode *Parser::ifStatement() {
         next();
         StatementNode *falseBranch = statement();
         if (falseBranch == NULL) { return NULL; }
-        return new IfStatementNode(cond, trueBranch, falseBranch);
+        return arena.construct<IfStatementNode>(cond, trueBranch, falseBranch);
     }
-    return new IfStatementNode(cond, trueBranch);
+    return arena.construct<IfStatementNode>(cond, trueBranch);
 }
 
 // while-stmt := While <expression : bool> <statement>
@@ -253,7 +253,7 @@ WhileStatementNode *Parser::whileStmt() {
     infoln("debug?: parsing <while-stmt.body>");
     StatementNode *body = statement();
     if (body == nullptr) { return nullptr; }
-    return new WhileStatementNode(cond, body);
+    return arena.construct<WhileStatementNode>(cond, body);
 }
 
 DoWhileStatementNode *Parser::doWhileStmt() {
@@ -267,7 +267,7 @@ DoWhileStatementNode *Parser::doWhileStmt() {
     if (!is(current, WHILE)) { return nullptr; }
     ExpressionNode *cond = expression();
     if (cond == nullptr) { return nullptr; }
-    return new DoWhileStatementNode(cond, body);
+    return arena.construct<DoWhileStatementNode>(cond, body);
 }
 
 // block := { <statement>* }
@@ -287,7 +287,7 @@ BlockStatementNode *Parser::blockStatement() {
         statements.push_back(node);
     }
     next(); // skip `}`
-    return new BlockStatementNode(
+    return arena.construct<BlockStatementNode>(
             statements
     );
 }
@@ -325,7 +325,7 @@ AssignmentNode *Parser::assignment() {
 
     lexinfo(current);
     infoln("debug!: parsed <assignment>");
-    return new AssignmentNode(lhs, rhs);
+    return arena.construct<AssignmentNode>(lhs, rhs);
 }
 
 // declaration := Type <variable> = <expression>
@@ -338,7 +338,7 @@ AssignmentNode *Parser::declaration() {
     if (!is(next(), SYMBOL)) { return NULL; }
 
     std::string name = current.getLexeme();
-    VarNode *lhs = new VarNode(name, type);
+    VarNode *lhs = arena.construct<VarNode>(name, type);
     if (!is(next(), ASSIGN)) { return NULL; }
 
     Token op = current;
@@ -361,7 +361,7 @@ AssignmentNode *Parser::declaration() {
 
     lexinfo(current);
     infoln("debug!: parsed <assignment>");
-    return new AssignmentNode(lhs, rhs);
+    return arena.construct<AssignmentNode>(lhs, rhs);
 }
 
 // expression := <lor>
@@ -398,7 +398,7 @@ ExpressionNode *Parser::lor() {
             return nullptr;
         }
 
-        return new BinaryNode(
+        return arena.construct<BinaryNode>(
                 TType::BOOL, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
@@ -425,7 +425,7 @@ ExpressionNode *Parser::land() {
             return nullptr;
         }
 
-        return new BinaryNode(
+        return arena.construct<BinaryNode>(
                 TType::BOOL, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
@@ -449,7 +449,7 @@ ExpressionNode *Parser::cmpeq() {
             return NULL;
         }
 
-        return new BinaryNode(
+        return arena.construct<BinaryNode>(
                 TType::BOOL, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
@@ -477,7 +477,7 @@ ExpressionNode *Parser::cmp() {
             return nullptr;
         }
 
-        return new BinaryNode(
+        return arena.construct<BinaryNode>(
                 TType::BOOL, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
@@ -510,7 +510,7 @@ ExpressionNode *Parser::additive() {
             type = TType::FLOAT;
         }
 
-        return new BinaryNode(
+        return arena.construct<BinaryNode>(
                 type, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
@@ -543,7 +543,7 @@ ExpressionNode *Parser::multiplicative() {
             type = TType::FLOAT;
         }
 
-        return new BinaryNode(
+        return arena.construct<BinaryNode>(
                 type, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
@@ -578,7 +578,7 @@ ExpressionNode *Parser::unary() {
             return NULL;
         }
 
-        return new UnaryNode(unaryOperatorFromLexeme(op), exp);
+        return arena.construct<UnaryNode>(unaryOperatorFromLexeme(op), exp);
     }
     ExpressionNode *node = factor();
     return node;
@@ -635,13 +635,13 @@ VarNode *Parser::var() {
     if (var != NULL) { return var; }
 
     error(t.getLine(), "variable " + name + " is not initilized");
-    return new VarNode(name, TType::UNDEFINED);
+    return arena.construct<VarNode>(name, TType::UNDEFINED);
 }
 
 ExpressionWrapperNode *Parser::_funcall() {
     FuncallNode *node = funcall();
     if (node == NULL) { return NULL; }
-    return new ExpressionWrapperNode(node);
+    return arena.construct<ExpressionWrapperNode>(node);
 }
 
 // funcall := Symbol \( <funcall-args> \)
@@ -659,7 +659,7 @@ FuncallNode *Parser::funcall() {
 
     std::vector<ExpressionNode *> args = funcallArgs();
     next();
-    return new FuncallNode(name, args, func->getType());
+    return arena.construct<FuncallNode>(name, args, func->getType());
 }
 
 // funcall-args := <expression>*
@@ -697,8 +697,8 @@ BooleanNode *Parser::boolean() {
     next();
 
     return value == "True"
-           ? new BooleanNode(true)
-           : new BooleanNode(false);
+           ? arena.construct<BooleanNode>(true)
+           : arena.construct<BooleanNode>(false);
 }
 
 // integer := Integer
@@ -706,7 +706,7 @@ IntegerNode *Parser::intgr() {
     infoln("debug?: parsing <integer>");
     std::string value = current.getLexeme();
     next();
-    return new IntegerNode(std::stoi(value));
+    return arena.construct<IntegerNode>(std::stoi(value));
 }
 
 // float := Float
@@ -715,5 +715,5 @@ FloatNode *Parser::flt() {
     std::string value = current.getLexeme();
     lexinfo(value);
     next();
-    return new FloatNode(std::stof(value));
+    return arena.construct<FloatNode>(std::stof(value));
 }

@@ -457,21 +457,21 @@ public:
     }
 
     /// Generates IR for all nodes in vector
-    void visit(VectorNode aNode) {
+    void visit(VectorNode &aNode) {
         for (Node *node: aNode.getNodes()) {
             node->accept((*this));
         }
     }
 
     //// Do nothing
-    void visit(DummyNode aNode) {}
+    void visit(DummyNode &aNode) {}
 
     /**
     Generates IR for variable
     \return Returns via stack LOAD instruction if variable is presented in symbol table,
       else generates ERROR
     */
-    void visit(VarNode aNode) {
+    void visit(VarNode &aNode) {
         Value *val = scopeStack.lookup(aNode.getName());
         Type *type = toLLVMType(aNode.getType());
 
@@ -488,7 +488,7 @@ public:
         operands.push(loadInstr);
     }
 
-    void visit(BooleanNode aNode) {
+    void visit(BooleanNode &aNode) {
         Value *val = ConstantInt::get(
                 /*IntegerType=*/ builder.getInt1Ty(),
                 /*value=*/ aNode.getValue(),
@@ -501,7 +501,7 @@ public:
     Generates IR for integer
     \return Returns via stack I32 constant
     */
-    void visit(IntegerNode aNode) {
+    void visit(IntegerNode &aNode) {
         Value *val = ConstantInt::get(
                 /*IntegerType=*/ builder.getInt32Ty(),
                 /*value=*/ aNode.getValue(),
@@ -514,7 +514,7 @@ public:
     Generates IR for float
     \return Returns via stack FP constant
     */
-    void visit(FloatNode aNode) {
+    void visit(FloatNode &aNode) {
         infoln(std::to_string(aNode.getValue()));
 
         Value *val = ConstantFP::get(
@@ -531,7 +531,7 @@ public:
       STORE
       IR: Name = alloca LLVMType, LLVMType Value
     */
-    void visit(AssignmentNode aNode) {
+    void visit(AssignmentNode &aNode) {
         VarNode *variable = aNode.getLHS();
         // Searches the whole scope chain, not just the innermost level --
         // this is what makes assigning to a parameter (bound in the
@@ -730,7 +730,7 @@ public:
     Generates IR for binary operation
     \return Returns via stack result of operation
     */
-    void visit(BinaryNode aNode) {
+    void visit(BinaryNode &aNode) {
         OperatorKind op = aNode.getOp();
 
         if (op == OperatorKind::Add || op == OperatorKind::Sub || op == OperatorKind::Mul || op == OperatorKind::Div) {
@@ -787,7 +787,7 @@ public:
     }
 
     // (<operator> <subexpr>)
-    void visit(UnaryNode aNode) {
+    void visit(UnaryNode &aNode) {
         OperatorKind op = aNode.getOp();
 
         if (op == OperatorKind::Neg) {
@@ -818,7 +818,7 @@ public:
     Generates IR for function call
     \return Returns via stack call instruction
     */
-    void visit(FuncallNode aNode) {
+    void visit(FuncallNode &aNode) {
         Function *func = funcs[aNode.getName()];
         FunctionDefNode *ast = astFuncs[aNode.getName()];
 
@@ -860,7 +860,7 @@ public:
     /**
     Generates IR for function
     */
-    void visit(FunctionDefNode aNode) {
+    void visit(FunctionDefNode &aNode) {
         infoln("gen?: generating function definition " + aNode.getName());
 
         scopeStack.clear();
@@ -883,9 +883,11 @@ public:
 
         funcs[aNode.getName()] = func;
 
-        astFuncs[aNode.getName()] = new FunctionDefNode(
-                aNode.getName(), aNode.getArgs(), aNode.getBody(), aNode.getType()
-        );
+        // aNode is now a reference into arena-owned storage (see Arena.h /
+        // ASTVisitor.h) that outlives this call, so both maps can point
+        // straight at it -- no need for the redundant heap copy this used
+        // to make just to have something whose lifetime it could trust.
+        astFuncs[aNode.getName()] = &aNode;
         currentFunc = &aNode;
 
         BasicBlock *bb = BasicBlock::Create(
@@ -927,7 +929,7 @@ public:
         FPM.run(*func, FAM);
     }
 
-    void visit(BlockStatementNode aNode) {
+    void visit(BlockStatementNode &aNode) {
         // A variable declared in this block is only visible for the
         // block's own lifetime -- pushed here, popped on every exit path
         // (including an error partway through) so it can never leak into
@@ -950,7 +952,7 @@ public:
     }
 
     // (If <expression> <statement> (Else <statement>)?
-    void visit(IfStatementNode aNode) {
+    void visit(IfStatementNode &aNode) {
         Function *func = funcs[currentFunc->getName()];
         aNode.getCond()->accept((*this));
         if (!isSuccess) { return; }
@@ -981,7 +983,7 @@ public:
         builder.SetInsertPoint(mergeBb);
     }
 
-    void visit(WhileStatementNode aNode) {
+    void visit(WhileStatementNode &aNode) {
         Function *func = funcs[currentFunc->getName()];
 
         // thenBb must be attached to func immediately (3-arg Create), not
@@ -1017,7 +1019,7 @@ public:
         builder.SetInsertPoint(afterBb);
     }
 
-    void visit(DoWhileStatementNode aNode) {
+    void visit(DoWhileStatementNode &aNode) {
         infoln("gen?: generating do-while statement");
         Function *func = funcs[currentFunc->getName()];
 
@@ -1039,14 +1041,14 @@ public:
     }
 
     // <expression>
-    void visit(ExpressionWrapperNode aNode) {
+    void visit(ExpressionWrapperNode &aNode) {
         // aNode.getExpr()->accept((*this));
     }
 
     /**
     Generates IR for print statement (intrinsic)
     */
-    void visit(IoPrintNode aNode) {
+    void visit(IoPrintNode &aNode) {
         aNode.getSubexpr()->accept((*this));
         if (!isSuccess) { return; }
 
@@ -1084,7 +1086,7 @@ public:
     /**
     Generates IR for return statement
     */
-    void visit(ReturnNode aNode) {
+    void visit(ReturnNode &aNode) {
         aNode.getSubexpr()->accept((*this));
         if (!isSuccess) { return; }
 

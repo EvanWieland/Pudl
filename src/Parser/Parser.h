@@ -3,17 +3,31 @@
 #include <string>
 #include <iostream>
 #include <map>
+#include <memory>
 
 #include "../Lexer/Lexer.h"
 #include "AST/ASTVisitor.h"
+#include "AST/Arena.h"
 
 class Parser {
 private:
-    Lexer *lexer;
+    // unique_ptr, not a raw owning pointer: Lexer's destructor closes the
+    // FILE* it was given, and this was previously leaked (`new Lexer`,
+    // never `delete`d) along with that open file handle. Tying it to the
+    // Parser's own lifetime fixes both without needing to hook every
+    // return point in parse().
+    std::unique_ptr<Lexer> lexer;
     Token current;
     bool isDebugMode;
     bool isSuccess;
     bool isError;
+
+    // Owns every AST node this Parser produces -- they live as long as
+    // this Parser does (see Arena.h). Declared before any parsing method
+    // runs and destroyed only when the Parser itself is (main() keeps the
+    // Parser alive through printing/codegen), so pointers into it -- like
+    // Codegen.h's currentFunc -- stay valid for the whole compilation.
+    Arena arena;
 
     std::map<std::string, VarNode *> scope;
     std::map<std::string, FunctionDefNode *> funcs;
