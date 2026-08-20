@@ -6,11 +6,20 @@
 #include <map>
 
 #include <llvm/IR/LLVMContext.h>
+// Still needed for compile()'s object-file emission: LLVM's
+// TargetMachine::addPassesToEmitFile() has no New-PM equivalent as of
+// LLVM 18, so that one legacy::PassManager stays legacy. The six
+// optimization passes below (opt_promote_to_reg() etc.) use the New PM.
 #include <llvm/IR/LegacyPassManager.h>
-#include <llvm/Transforms/Scalar.h>
-#include <llvm/Transforms/Scalar/GVN.h>
-#include <llvm/Transforms/Utils.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/Analysis/CGSCCPassManager.h>
+#include <llvm/Transforms/Utils/Mem2Reg.h>
 #include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar/Reassociate.h>
+#include <llvm/Transforms/Scalar/DCE.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Support/raw_ostream.h>
@@ -51,7 +60,18 @@ private:
     std::map<std::string, FunctionDefNode *> astFuncs;
     FunctionDefNode *currentFunc;
 
-    llvm::legacy::FunctionPassManager *passManager;
+    // New-PM machinery for the six opt_*() optimization passes below. The
+    // analysis managers must outlive and be cross-registered before any
+    // pass runs; FPM itself is built up incrementally as each opt_*()
+    // method is called (mirroring the old code's "add a pass, don't run
+    // yet" shape) and actually executed once per function, at the end of
+    // visit(FunctionDefNode).
+    llvm::PassBuilder passBuilder;
+    llvm::LoopAnalysisManager LAM;
+    llvm::FunctionAnalysisManager FAM;
+    llvm::CGSCCAnalysisManager CGAM;
+    llvm::ModuleAnalysisManager MAM;
+    llvm::FunctionPassManager FPM;
 
     LLVMContext &getGlobalContext() {
         static LLVMContext GlobalContext;
@@ -144,7 +164,11 @@ public:
 
         print = llvm::cast<llvm::Function>(func.getCallee());
 
-        passManager = new llvm::legacy::FunctionPassManager(module);
+        passBuilder.registerModuleAnalyses(MAM);
+        passBuilder.registerCGSCCAnalyses(CGAM);
+        passBuilder.registerFunctionAnalyses(FAM);
+        passBuilder.registerLoopAnalyses(LAM);
+        passBuilder.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
         currentFunc = nullptr;
     }
@@ -165,38 +189,32 @@ public:
 
     // Promote allocas to registers.
     void opt_promote_to_reg() {
-        passManager->add(createPromoteMemoryToRegisterPass());
-        passManager->doInitialization();
+        FPM.addPass(PromotePass());
     }
 
     // Do simple "peephole" optimizations and bit-twiddling optzns.
     void opt_instcombine() {
-        passManager->add(createInstructionCombiningPass());
-        passManager->doInitialization();
+        FPM.addPass(InstCombinePass());
     }
 
     // Reassociate expressions.
     void opt_reassociate() {
-        passManager->add(createReassociatePass());
-        passManager->doInitialization();
+        FPM.addPass(ReassociatePass());
     }
 
     // Eliminate dead code & expressions.
     void opt_dce() {
-        passManager->add(createDeadCodeEliminationPass());
-        passManager->doInitialization();
+        FPM.addPass(DCEPass());
     }
 
     // Eliminate Common SubExpressions.
     void opt_gvn() {
-        passManager->add(createGVNPass());
-        passManager->doInitialization();
+        FPM.addPass(GVNPass());
     }
 
     // Simplify the control flow graph (deleting unreachable blocks, etc).
     void opt_simplifyCFG() {
-        passManager->add(createCFGSimplificationPass());
-        passManager->doInitialization();
+        FPM.addPass(SimplifyCFGPass());
     }
 
     void runSource() {
@@ -827,7 +845,7 @@ public:
         // wrong output.
         if (!isSuccess) { return; }
 
-        passManager->run(*func);
+        FPM.run(*func, FAM);
     }
 
     void visit(BlockStatementNode aNode) {
