@@ -12,10 +12,20 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
-file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-add_executable(${PROJECT_NAME} ${SOURCES})
+# Everything except main.cpp (the lexer, parser, AST, codegen, and
+# compiler/linker machinery) lives in pudl_core so it can be linked
+# independently of the CLI -- e.g. by unit tests, or a future tool that
+# wants to embed the compiler without pudl.exe's argv/--help handling
+# (which stays in main.cpp/Compiler/CLIManager.h, a header with no .cpp of
+# its own, so it's naturally excluded here already).
+file(GLOB_RECURSE CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+list(REMOVE_ITEM CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 
-target_include_directories(${PROJECT_NAME} PUBLIC src)
+add_library(pudl_core STATIC ${CORE_SOURCES})
+target_include_directories(pudl_core PUBLIC src)
+
+add_executable(${PROJECT_NAME} src/main.cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE pudl_core)
 
 set(TARGET_WebAssembly WebAssemblyCodeGen WebAssemblyAsmParser WebAssemblyDesc WebAssemblyInfo)
 set(TARGET_XCore XCoreCodeGen XCoreDesc XCoreInfo)
@@ -81,7 +91,7 @@ llvm_map_components_to_libnames(
         Passes
 )
 
-target_link_libraries(${PROJECT_NAME} ${llvm_libs})
+target_link_libraries(pudl_core PUBLIC ${llvm_libs})
 
 enable_testing()
 
