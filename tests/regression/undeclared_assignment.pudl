@@ -1,0 +1,8 @@
+# Regression case: assigning to a variable that was never declared must be
+# reported as a parse error and exit cleanly, not crash the compiler
+# (Parser::assignment() used to dereference a null VarNode*, since
+# std::map::operator[] default-inserts nullptr for unknown names).
+func mast : int {
+  x = 5
+  return 0
+}

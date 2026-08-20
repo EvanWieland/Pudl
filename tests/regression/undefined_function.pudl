@@ -1,0 +1,7 @@
+# Regression case: calling an undefined function must be reported as a
+# parse error and exit cleanly, not crash the compiler (Parser::funcall()
+# used to dereference a null FunctionDefNode*).
+func mast : int {
+  print doesNotExist(1)
+  return 0
+}

@@ -140,6 +140,12 @@ if (WIN32)
                     -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_no_shell_injection.ps1"
                     -Bin "$<TARGET_FILE:${PROJECT_NAME}>"
     )
+    add_test(
+            NAME parser_error_recovery_test
+            COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+                    -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_parser_error_recovery.ps1"
+                    -Bin "$<TARGET_FILE:${PROJECT_NAME}>"
+    )
 else ()
     add_test(
             NAME golden_tests
@@ -154,6 +160,11 @@ else ()
     add_test(
             NAME no_shell_injection_test
             COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_no_shell_injection.sh"
+                    "$<TARGET_FILE:${PROJECT_NAME}>"
+    )
+    add_test(
+            NAME parser_error_recovery_test
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_parser_error_recovery.sh"
                     "$<TARGET_FILE:${PROJECT_NAME}>"
     )
 endif ()

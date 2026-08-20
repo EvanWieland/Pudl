@@ -300,8 +300,11 @@ AssignmentNode *Parser::assignment() {
     std::string name = t.getLexeme();
 
     VarNode *lhs = scope[name];
+    if (lhs == NULL) {
+        error(t.getLine(), "assignment to undeclared variable " + name);
+        return NULL;
+    }
 
-    // VarNode* lhs = new VarNode(name, TType::UNDEFINED);
     if (!is(next(), ASSIGN)) { return NULL; }
 
     Token op = current;
@@ -647,6 +650,7 @@ FuncallNode *Parser::funcall() {
     FunctionDefNode *func = funcs[name];
     if (func == NULL) {
         error(begin.getLine(), "function `" + name + "` is undefined");
+        return NULL;
     }
 
     std::vector<ExpressionNode *> args = funcallArgs();
