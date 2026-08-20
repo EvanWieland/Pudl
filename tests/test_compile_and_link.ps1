@@ -32,7 +32,7 @@ try {
         exit 1
     }
 
-    $actual = (& $outExe | Out-String).TrimEnd("`r", "`n")
+    $actual = ((& $outExe | Out-String) -replace "`r`n", "`n").TrimEnd("`n")
     # The linker's generated wrapper (see Linker.h) is `int main() {
     # std::cout << mast() << std::endl; }` -- mast()'s own return value (0)
     # is always printed as a trailing line on top of whatever mast() itself
