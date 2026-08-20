@@ -134,6 +134,12 @@ if (WIN32)
                     -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_golden_tests.ps1"
                     -Bin "$<TARGET_FILE:${PROJECT_NAME}>" -Ir
     )
+    add_test(
+            NAME no_shell_injection_test
+            COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+                    -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_no_shell_injection.ps1"
+                    -Bin "$<TARGET_FILE:${PROJECT_NAME}>"
+    )
 else ()
     add_test(
             NAME golden_tests
@@ -144,5 +150,10 @@ else ()
             NAME golden_ir_tests
             COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_golden_tests.sh"
                     "$<TARGET_FILE:${PROJECT_NAME}>" --ir
+    )
+    add_test(
+            NAME no_shell_injection_test
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_no_shell_injection.sh"
+                    "$<TARGET_FILE:${PROJECT_NAME}>"
     )
 endif ()

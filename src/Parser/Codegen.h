@@ -24,6 +24,7 @@
 #include "AST/ASTVisitor.h"
 
 #include "Compiler/Linker/Linker.h"
+#include "Compiler/Process.h"
 
 using namespace llvm;
 
@@ -216,10 +217,8 @@ public:
 
         std::cout << "Executing -----------------------" << std::endl << std::endl;
 
-        std::string cmd = "lli " + irOutput;
-
         // Run lli output file
-        std::system(cmd.c_str());
+        Process::Run({"lli", irOutput});
 
         // remove irOutput file and check for errors
         if (remove(irOutput.c_str()) != 0) {
@@ -234,8 +233,7 @@ public:
 
         std::cout << "Executing -----------------------" << std::endl << std::endl;
 
-        std::string cmd = "./" + oOutPath;
-        std::system(cmd.c_str());
+        Process::Run({"./" + oOutPath});
 
         // Remove oOutPath file and check for errors
         if (remove(oOutPath.c_str()) != 0) {

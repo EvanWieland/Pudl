@@ -4,6 +4,9 @@
 #include <fstream>
 #include <string>
 #include <iostream>
+#include <vector>
+
+#include "../Process.h"
 
 #define LinkerCmd "clang++-13"
 #define LinkerProgram "TempLinker.cpp"
@@ -29,9 +32,9 @@ public:
         out << program;
         out.close();
 
-        std::string cmd = std::string(linker) + " " + LinkerProgram + " " + inPath + " -o " + outPath;
+        int result = Process::Run({linker, LinkerProgram, inPath, "-o", outPath});
 
-        if (std::system(cmd.c_str()) == 0) {
+        if (result == 0) {
             std::cout << "Linking successful" << std::endl;
         } else {
             std::cout << "Linking failed" << std::endl;
