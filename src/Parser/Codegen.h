@@ -37,6 +37,46 @@
 
 using namespace llvm;
 
+/**
+ * A stack of name->alloca scopes, innermost last. Replaces the single flat
+ * map Codegen used to keep per function (cleared once at function entry):
+ * that meant a variable declared inside an if/while body was visible
+ * (and could collide with) anything else in the whole function, with no
+ * shadowing and no cleanup when the block exits. Codegen pushes a new
+ * scope in visit(BlockStatementNode) and pops it on the way out; function
+ * parameters live in the outermost (function-level) scope pushed by
+ * visit(FunctionDefNode), so they're visible from nested blocks exactly
+ * like any enclosing-scope local would be.
+ */
+class ScopeStack {
+private:
+    std::vector<std::map<std::string, Value *>> scopes;
+public:
+    void clear() { scopes.clear(); }
+
+    void push() { scopes.emplace_back(); }
+
+    void pop() { scopes.pop_back(); }
+
+    // Binds aName in the *innermost* scope. Used both for a fresh local
+    // variable declaration and for binding a function parameter's alloca.
+    void declare(const std::string &aName, Value *aAlloca) {
+        scopes.back()[aName] = aAlloca;
+    }
+
+    // Searches innermost-to-outermost; nullptr if aName isn't bound
+    // anywhere in the current scope chain.
+    Value *lookup(const std::string &aName) {
+        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+            auto found = it->find(aName);
+            if (found != it->end()) {
+                return found->second;
+            }
+        }
+        return nullptr;
+    }
+};
+
 class Codegen : public ASTVisitor {
 private:
     bool isSuccess;
@@ -53,8 +93,7 @@ private:
     std::stack<Value *> operands;
     Value *retValue;
 
-    std::map<std::string, Value *> scope;
-    std::map<std::string, Value *> argScope;
+    ScopeStack scopeStack;
 
     std::map<std::string, Function *> funcs;
     std::map<std::string, FunctionDefNode *> astFuncs;
@@ -429,27 +468,20 @@ public:
       else generates ERROR
     */
     void visit(VarNode aNode) {
-        Value *val = argScope[aNode.getName()];
+        Value *val = scopeStack.lookup(aNode.getName());
         Type *type = toLLVMType(aNode.getType());
-
-        bool isArg = false;
-        if (val == NULL) {
-            val = scope[aNode.getName()];
-        } else {
-            isArg = true;
-        }
 
         if (val == NULL) {
             error("Can't find variable " + aNode.getName());
             return;
         }
 
-        if (isArg) {
-            operands.push(val);
-        } else {
-            Value *loadInstr = builder.CreateLoad(type, val, aNode.getName());
-            operands.push(loadInstr);
-        }
+        // Parameters are alloca'd in visit(FunctionDefNode) exactly like
+        // any other local now, so every binding this can find is a
+        // pointer needing a load -- no more separate "is this a raw
+        // Argument SSA value" case.
+        Value *loadInstr = builder.CreateLoad(type, val, aNode.getName());
+        operands.push(loadInstr);
     }
 
     void visit(BooleanNode aNode) {
@@ -497,7 +529,13 @@ public:
     */
     void visit(AssignmentNode aNode) {
         VarNode *variable = aNode.getLHS();
-        Value *alloca = scope[variable->getName()];
+        // Searches the whole scope chain, not just the innermost level --
+        // this is what makes assigning to a parameter (bound in the
+        // function's outermost scope) actually reassign it instead of
+        // silently creating a new shadowing local, which is what happened
+        // when parameters lived in a completely separate map that this
+        // lookup never consulted.
+        Value *alloca = scopeStack.lookup(variable->getName());
 
         infoln("Assignment: " + variable->getName());
 
@@ -518,7 +556,11 @@ public:
             builder.CreateStore(rhs, alloca);
             operands.pop();
 
-            scope[variable->getName()] = alloca;
+            // Binds in the *current* (innermost) scope: a declaration
+            // inside an if/while body no longer leaks into the enclosing
+            // function scope or collides with a same-named variable
+            // outside the block.
+            scopeStack.declare(variable->getName(), alloca);
 
             infoln("gen?: Declared variable " + variable->getName());
         } else {
@@ -817,8 +859,8 @@ public:
     void visit(FunctionDefNode aNode) {
         infoln("gen?: generating function definition " + aNode.getName());
 
-        scope.clear();
-        argScope.clear();
+        scopeStack.clear();
+        scopeStack.push();
 
         std::vector<Type *> argsTy;
         std::vector<VarNode *> args = aNode.getArgs();
@@ -842,17 +884,31 @@ public:
         );
         currentFunc = &aNode;
 
-        int idx(0);
-        for (auto arg = func->arg_begin(); idx != argsTy.size(); ++arg, ++idx) {
-            std::string argName = args[idx]->getName();
-            arg->setName(argName);
-            argScope[argName] = arg;
-        }
-
         BasicBlock *bb = BasicBlock::Create(
                 getGlobalContext(), "entry", func
         );
         builder.SetInsertPoint(bb);
+
+        // Alloca each parameter and store the incoming SSA argument value
+        // into it, then bind the *alloca* (not the raw Argument* SSA
+        // value, as this used to) in the function's outermost scope.
+        // Before this, a parameter's binding lived in a completely
+        // separate map that visit(AssignmentNode) never consulted, so
+        // assigning to a parameter name silently created a new shadowing
+        // local instead of erroring or actually reassigning it. This also
+        // lets visit(VarNode) treat parameters and locals identically
+        // (both are just an alloca to load from) -- mem2reg still
+        // promotes these back to registers exactly like it already does
+        // for every other local.
+        int idx(0);
+        for (auto arg = func->arg_begin(); idx != argsTy.size(); ++arg, ++idx) {
+            std::string argName = args[idx]->getName();
+            arg->setName(argName);
+
+            Value *argAlloca = builder.CreateAlloca(argsTy[idx], nullptr, argName);
+            builder.CreateStore(arg, argAlloca);
+            scopeStack.declare(argName, argAlloca);
+        }
 
         aNode.getBody()->accept((*this));
 
@@ -868,10 +924,25 @@ public:
     }
 
     void visit(BlockStatementNode aNode) {
+        // A variable declared in this block is only visible for the
+        // block's own lifetime -- pushed here, popped on every exit path
+        // (including an error partway through) so it can never leak into
+        // or collide with an enclosing scope. Note: since a declaration
+        // and a plain reassignment are both just an AssignmentNode (the
+        // parser doesn't distinguish them in the AST either), a variable
+        // declared inside this block and referenced *after* the block
+        // exits will now correctly fail to resolve in visit(VarNode) --
+        // Parser.cpp's own scope tracking is separately flat across the
+        // whole function and doesn't enforce the same restriction, so
+        // that specific mismatch is a known, currently-unexercised gap
+        // (no example/test declares-then-uses-after-a-block) that would
+        // need a matching parser-side fix to close completely.
+        scopeStack.push();
         for (StatementNode *node: aNode.getStatements()) {
             node->accept((*this));
-            if (!isSuccess) { return; }
+            if (!isSuccess) { break; }
         }
+        scopeStack.pop();
     }
 
     // (If <expression> <statement> (Else <statement>)?
