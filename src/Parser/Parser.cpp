@@ -399,7 +399,7 @@ ExpressionNode *Parser::lor() {
         }
 
         return new BinaryNode(
-                TType::BOOL, op, lhs, rhs
+                TType::BOOL, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
     return lhs;
@@ -426,7 +426,7 @@ ExpressionNode *Parser::land() {
         }
 
         return new BinaryNode(
-                TType::BOOL, op, lhs, rhs
+                TType::BOOL, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
     return lhs;
@@ -450,7 +450,7 @@ ExpressionNode *Parser::cmpeq() {
         }
 
         return new BinaryNode(
-                TType::BOOL, op, lhs, rhs
+                TType::BOOL, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
     return lhs;
@@ -478,7 +478,7 @@ ExpressionNode *Parser::cmp() {
         }
 
         return new BinaryNode(
-                TType::BOOL, op, lhs, rhs
+                TType::BOOL, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
     return lhs;
@@ -511,7 +511,7 @@ ExpressionNode *Parser::additive() {
         }
 
         return new BinaryNode(
-                type, op, lhs, rhs
+                type, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
     return lhs;
@@ -544,7 +544,7 @@ ExpressionNode *Parser::multiplicative() {
         }
 
         return new BinaryNode(
-                type, op, lhs, rhs
+                type, binaryOperatorFromLexeme(op), lhs, rhs
         );
     }
     return lhs;
@@ -578,7 +578,7 @@ ExpressionNode *Parser::unary() {
             return NULL;
         }
 
-        return new UnaryNode(op, exp);
+        return new UnaryNode(unaryOperatorFromLexeme(op), exp);
     }
     ExpressionNode *node = factor();
     return node;

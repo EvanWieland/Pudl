@@ -46,6 +46,29 @@ public:
     virtual void accept(ASTVisitor &aVisitor) = 0;
 };
 
+// Binary/unary operators, previously stored on BinaryNode/UnaryNode as raw
+// std::string lexemes and dispatched via string comparison throughout
+// Codegen.h -- slower, and a typo here silently produces a no-op/NULL
+// instead of a compile error. Pos/Neg/Not are the unary forms (`+x`, `-x`,
+// `!x`); Add/Sub double as the binary forms of the same `+`/`-` lexemes.
+enum class OperatorKind {
+    Add, Sub, Mul, Div,
+    Eq, Ne, Gt, Lt, Ge, Le,
+    And, Or,
+    Pos, Neg, Not
+};
+
+// aLexeme must be a lexeme the lexer/parser actually recognize for the
+// requested context (binary vs. unary) -- these are total only over that
+// domain, matching every call site's precondition of having already parsed
+// a valid operator token.
+OperatorKind binaryOperatorFromLexeme(const std::string &aLexeme);
+
+OperatorKind unaryOperatorFromLexeme(const std::string &aLexeme);
+
+// Inverse of the two functions above -- e.g. for debug printing.
+std::string showOperator(OperatorKind aOp);
+
 class VarNode : public ExpressionNode {
 private:
     std::string name;
@@ -118,17 +141,17 @@ public:
 
 class BinaryNode : public ExpressionNode {
 private:
-    std::string op;
+    OperatorKind op;
     ExpressionNode *lhs;
     ExpressionNode *rhs;
 public:
     BinaryNode(
-            TType aType, std::string aOp, ExpressionNode *aLHS, ExpressionNode *aRHS
+            TType aType, OperatorKind aOp, ExpressionNode *aLHS, ExpressionNode *aRHS
     ) : op(aOp), lhs(aLHS), rhs(aRHS) {
         type = aType;
     }
 
-    std::string getOp() { return op; }
+    OperatorKind getOp() { return op; }
 
     ExpressionNode *getLHS() { return lhs; }
 
@@ -139,16 +162,16 @@ public:
 
 class UnaryNode : public ExpressionNode {
 private:
-    std::string op;
+    OperatorKind op;
     ExpressionNode *subexpr;
 public:
     UnaryNode(
-            std::string aOp, ExpressionNode *aSubexpr
+            OperatorKind aOp, ExpressionNode *aSubexpr
     ) : op(aOp), subexpr(aSubexpr) {
         type = aSubexpr->getType();
     }
 
-    std::string getOp() { return op; }
+    OperatorKind getOp() { return op; }
 
     ExpressionNode *getSubexpr() { return subexpr; }
 

@@ -557,28 +557,28 @@ public:
         Value *lhs = operands.top();
         operands.pop();
 
-        std::string op = aNode.getOp();
+        OperatorKind op = aNode.getOp();
         if (lhsTy == TType::FLOAT || rhsTy == TType::FLOAT) {
             lhs = cast(lhs, lhsTy, TType::FLOAT);
             rhs = cast(rhs, rhsTy, TType::FLOAT);
 
-            if (op == "+") {
+            if (op == OperatorKind::Add) {
                 return builder.CreateFAdd(lhs, rhs);
-            } else if (op == "-") {
+            } else if (op == OperatorKind::Sub) {
                 return builder.CreateFSub(lhs, rhs);
-            } else if (op == "*") {
+            } else if (op == OperatorKind::Mul) {
                 return builder.CreateFMul(lhs, rhs);
-            } else if (op == "/") {
+            } else if (op == OperatorKind::Div) {
                 return builder.CreateFDiv(lhs, rhs);
             }
         } else {
-            if (op == "+") {
+            if (op == OperatorKind::Add) {
                 return builder.CreateAdd(lhs, rhs);
-            } else if (op == "-") {
+            } else if (op == OperatorKind::Sub) {
                 return builder.CreateSub(lhs, rhs);
-            } else if (op == "*") {
+            } else if (op == OperatorKind::Mul) {
                 return builder.CreateMul(lhs, rhs);
-            } else if (op == "/") {
+            } else if (op == OperatorKind::Div) {
                 return builder.CreateUDiv(lhs, rhs);
             }
         }
@@ -599,37 +599,37 @@ public:
         Value *lhs = operands.top();
         operands.pop();
 
-        std::string op = aNode.getOp();
+        OperatorKind op = aNode.getOp();
 
         if (lhsTy == TType::FLOAT || rhsTy == TType::FLOAT) {
             lhs = cast(lhs, lhsTy, TType::FLOAT);
             rhs = cast(rhs, rhsTy, TType::FLOAT);
 
-            if (op == "==") {
+            if (op == OperatorKind::Eq) {
                 return builder.CreateFCmp(CmpInst::FCMP_OEQ, lhs, rhs);
-            } else if (op == "!=") {
+            } else if (op == OperatorKind::Ne) {
                 return builder.CreateFCmp(CmpInst::FCMP_ONE, lhs, rhs);
-            } else if (op == ">") {
+            } else if (op == OperatorKind::Gt) {
                 return builder.CreateFCmp(CmpInst::FCMP_OGT, lhs, rhs);
-            } else if (op == "<") {
+            } else if (op == OperatorKind::Lt) {
                 return builder.CreateFCmp(CmpInst::FCMP_OLT, lhs, rhs);
-            } else if (op == ">=") {
+            } else if (op == OperatorKind::Ge) {
                 return builder.CreateFCmp(CmpInst::FCMP_OGE, lhs, rhs);
-            } else if (op == "<=") {
+            } else if (op == OperatorKind::Le) {
                 return builder.CreateFCmp(CmpInst::FCMP_OLE, lhs, rhs);
             }
         } else {
-            if (op == "==") {
+            if (op == OperatorKind::Eq) {
                 return builder.CreateICmp(CmpInst::ICMP_EQ, lhs, rhs);
-            } else if (op == "!=") {
+            } else if (op == OperatorKind::Ne) {
                 return builder.CreateICmp(CmpInst::ICMP_NE, lhs, rhs);
-            } else if (op == ">") {
+            } else if (op == OperatorKind::Gt) {
                 return builder.CreateICmp(CmpInst::ICMP_SGT, lhs, rhs);
-            } else if (op == "<") {
+            } else if (op == OperatorKind::Lt) {
                 return builder.CreateICmp(CmpInst::ICMP_SLT, lhs, rhs);
-            } else if (op == ">=") {
+            } else if (op == OperatorKind::Ge) {
                 return builder.CreateICmp(CmpInst::ICMP_SGE, lhs, rhs);
-            } else if (op == "<=") {
+            } else if (op == OperatorKind::Le) {
                 return builder.CreateICmp(CmpInst::ICMP_SLE, lhs, rhs);
             }
         }
@@ -650,10 +650,10 @@ public:
         Value *lhs = operands.top();
         operands.pop();
 
-        std::string op = aNode.getOp();
-        if (op == "&&") {
+        OperatorKind op = aNode.getOp();
+        if (op == OperatorKind::And) {
             return builder.CreateAnd(lhs, rhs);
-        } else if (op == "||") {
+        } else if (op == OperatorKind::Or) {
             return builder.CreateOr(lhs, rhs);
         }
         return NULL;
@@ -664,9 +664,9 @@ public:
     \return Returns via stack result of operation
     */
     void visit(BinaryNode aNode) {
-        std::string op = aNode.getOp();
+        OperatorKind op = aNode.getOp();
 
-        if (op == "+" || op == "-" || op == "*" || op == "/") {
+        if (op == OperatorKind::Add || op == OperatorKind::Sub || op == OperatorKind::Mul || op == OperatorKind::Div) {
             Value *res = biarithmetic(aNode);
             if (res == NULL) {
                 // A NULL result can mean either a genuine unhandled-op bug
@@ -679,9 +679,9 @@ public:
             }
             operands.push(res);
         } else if (
-                op == "==" || op == "!="
-                || op == ">" || op == "<"
-                || op == ">=" || op == "<="
+                op == OperatorKind::Eq || op == OperatorKind::Ne
+                || op == OperatorKind::Gt || op == OperatorKind::Lt
+                || op == OperatorKind::Ge || op == OperatorKind::Le
                 ) {
             Value *res = birel(aNode);
             if (res == NULL) {
@@ -689,7 +689,7 @@ public:
                 return;
             }
             operands.push(res);
-        } else if (op == "&&" || op == "||") {
+        } else if (op == OperatorKind::And || op == OperatorKind::Or) {
             Value *res = bilog(aNode);
             if (res == NULL) {
                 if (isSuccess) { error("unknown error"); }
@@ -721,26 +721,26 @@ public:
 
     // (<operator> <subexpr>)
     void visit(UnaryNode aNode) {
-        std::string op = aNode.getOp();
+        OperatorKind op = aNode.getOp();
 
-        if (op == "-") {
+        if (op == OperatorKind::Neg) {
             Value *res = unarithmetic(aNode);
             if (res == NULL) {
                 if (isSuccess) { error("unknown error"); }
                 return;
             }
             operands.push(res);
-        } else if (op == "!") {
+        } else if (op == OperatorKind::Not) {
             Value *res = unlog(aNode);
             if (res == NULL) {
                 if (isSuccess) { error("unknown error"); }
                 return;
             }
             operands.push(res);
-        } else if (op == "+") {
+        } else if (op == OperatorKind::Pos) {
             // Unary plus is a value-level no-op, but the subexpression's
             // IR must still be generated: without this branch neither
-            // unarithmetic() nor unlog() ran for op=="+", so the operand
+            // unarithmetic() nor unlog() ran for op==Pos, so the operand
             // was never visited at all, silently desyncing the operand
             // stack for whatever consumes this node's result.
             aNode.getSubexpr()->accept((*this));

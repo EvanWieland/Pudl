@@ -70,7 +70,7 @@ public:
 
     // (<operator> <lhs> <rhs>)
     void visit(BinaryNode aNode) {
-        std::cout << " (" << aNode.getOp() << " ";
+        std::cout << " (" << showOperator(aNode.getOp()) << " ";
         aNode.getLHS()->accept((*this));
         aNode.getRHS()->accept((*this));
         std::cout << ")";
@@ -78,7 +78,7 @@ public:
 
     // (<operator> <subexpr>)
     void visit(UnaryNode aNode) {
-        std::cout << " (" << aNode.getOp() << " ";
+        std::cout << " (" << showOperator(aNode.getOp()) << " ";
         aNode.getSubexpr()->accept((*this));
         std::cout << ")";
     }
