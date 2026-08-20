@@ -14,10 +14,14 @@ $RepoRoot = Split-Path -Parent $ScriptDir
 
 $fail = $false
 
-function Test-NoCrash([string]$Name, [string]$Src) {
+function Test-NoCrash([string]$Name, [string]$Src, [string]$ExpectedText = "") {
     Push-Location $RepoRoot
     try {
-        & $Bin $Src *> $null
+        # See run_golden_tests.ps1's Invoke-Pudl for why this goes through
+        # cmd.exe rather than PowerShell's own `&`-plus-redirection.
+        $quoted = @($Bin, $Src) | ForEach-Object { '"' + $_ + '"' }
+        $cmdLine = $quoted -join ' '
+        $output = (cmd /c "$cmdLine 2>&1") -join "`n"
         $code = $LASTEXITCODE
     } finally {
         Pop-Location
@@ -31,11 +35,18 @@ function Test-NoCrash([string]$Name, [string]$Src) {
         Write-Host "FAIL: $Name crashed (exit code $code)"
         return $false
     }
+
+    if ($ExpectedText -and -not $output.Contains($ExpectedText)) {
+        Write-Host "FAIL: $Name did not report the expected error ('$ExpectedText')"
+        return $false
+    }
+
     Write-Host "PASS: $Name did not crash (exit code $code)"
     return $true
 }
 
 if (-not (Test-NoCrash "undefined function call" "tests/regression/undefined_function.pudl")) { $fail = $true }
 if (-not (Test-NoCrash "undeclared variable assignment" "tests/regression/undeclared_assignment.pudl")) { $fail = $true }
+if (-not (Test-NoCrash "unary ! type mismatch" "tests/regression/unary_type_mismatch.pudl" "expected boolean but given number")) { $fail = $true }
 
 if ($fail) { exit 1 } else { exit 0 }

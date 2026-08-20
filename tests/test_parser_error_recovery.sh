@@ -5,6 +5,9 @@
 # tests/regression/undefined_function.pudl and undeclared_assignment.pudl
 # each exercise a null-pointer dereference that used to exist in
 # Parser::funcall() and Parser::assignment() respectively.
+# tests/regression/unary_type_mismatch.pudl exercises Parser::unary()'s
+# type-mismatch guard, which used to check the wrong token and so never
+# actually fired.
 #
 # Usage: test_parser_error_recovery.sh <path-to-pudl-binary>
 
@@ -24,20 +27,29 @@ cd "$REPO_ROOT"
 fail=0
 
 check() {
-  local name="$1" src="$2"
-  "$BIN" "$src" >/dev/null 2>&1
+  local name="$1" src="$2" expected_text="${3:-}"
+  local output
+  output="$("$BIN" "$src" 2>&1)"
   local status=$?
   # A process killed by a signal (segfault, abort, ...) reports exit status
   # 128+signal under bash; a clean (even error-reporting) exit never does.
   if [ "$status" -ge 128 ]; then
     echo "FAIL: $name crashed (signal $((status - 128)), exit code $status)"
     fail=1
-  else
-    echo "PASS: $name did not crash (exit code $status)"
+    return
   fi
+
+  if [ -n "$expected_text" ] && [[ "$output" != *"$expected_text"* ]]; then
+    echo "FAIL: $name did not report the expected error ('$expected_text')"
+    fail=1
+    return
+  fi
+
+  echo "PASS: $name did not crash (exit code $status)"
 }
 
 check "undefined function call" "tests/regression/undefined_function.pudl"
 check "undeclared variable assignment" "tests/regression/undeclared_assignment.pudl"
+check "unary ! type mismatch" "tests/regression/unary_type_mismatch.pudl" "expected boolean but given number"
 
 exit $fail

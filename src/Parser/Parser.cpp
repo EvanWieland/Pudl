@@ -565,11 +565,15 @@ ExpressionNode *Parser::unary() {
             return NULL;
         }
 
-        if (current.getType() == NOT && exp->getType() != TType::BOOL) {
+        // t is the operator token itself, captured before next()/unary()
+        // advanced past it and the operand -- checking current here (as
+        // this used to) tests whatever token follows the whole unary
+        // expression instead, making these guards non-functional.
+        if (t.getType() == NOT && exp->getType() != TType::BOOL) {
             error(t.getLine(), "expected boolean but given number");
             return NULL;
         }
-        if (current.getType() == ADD && exp->getType() == TType::BOOL) {
+        if (t.getType() == ADD && exp->getType() == TType::BOOL) {
             error(t.getLine(), "expected number but given boolean");
             return NULL;
         }

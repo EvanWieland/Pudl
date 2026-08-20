@@ -684,6 +684,13 @@ public:
                 return;
             }
             operands.push(res);
+        } else if (op == "+") {
+            // Unary plus is a value-level no-op, but the subexpression's
+            // IR must still be generated: without this branch neither
+            // unarithmetic() nor unlog() ran for op=="+", so the operand
+            // was never visited at all, silently desyncing the operand
+            // stack for whatever consumes this node's result.
+            aNode.getSubexpr()->accept((*this));
         }
     }
 

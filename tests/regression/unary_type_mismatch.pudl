@@ -1,0 +1,9 @@
+# Regression case: `!` on a non-boolean must be reported as a parse error.
+# Parser::unary()'s type-mismatch guard used to check current.getType()
+# after already advancing past the operator and its operand -- checking the
+# *next* token instead of the operator itself -- making it non-functional.
+func mast : int {
+  bool b = !5
+  print b
+  return 0
+}
