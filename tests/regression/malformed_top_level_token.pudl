@@ -1,0 +1,9 @@
+# Regression fixture for an infinite loop found by fuzzing
+# (fuzz/fuzz_pipeline.cpp): a top-level token that isn't `func` used to
+# make Parser::parse()'s while(1) loop spin forever printing "unexpected
+# token" instead of erroring out, because its default: case never
+# advanced the lexer past the offending token. `renfuc` below is exactly
+# the kind of mangled-keyword input a fuzzer's mutations produce.
+renfuc mast : int {
+  return 0
+}

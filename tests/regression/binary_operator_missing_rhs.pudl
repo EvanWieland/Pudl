@@ -1,0 +1,11 @@
+# Regression fixture for a null-pointer dereference found by fuzzing
+# (fuzz/fuzz_pipeline.cpp, crash input derived from a mutated ex2.pudl).
+# `&&` followed by `<=` fails to parse a right-hand side (`<=` can't
+# start an expression) -- land()'s recursive call for the RHS returns
+# NULL, which used to propagate up through cmp()/cmpeq()/additive()/
+# multiplicative() as an unchecked lhs: every one of those dereferenced
+# lhs->getType() without checking for NULL first.
+func mast : int {
+  bool b = True && <= 1
+  return 0
+}

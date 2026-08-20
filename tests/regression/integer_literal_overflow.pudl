@@ -1,0 +1,9 @@
+# Regression fixture for an uncaught std::out_of_range crash found by
+# fuzzing (fuzz/fuzz_pipeline.cpp): Parser::intgr() called std::stoi() on
+# the literal's text with no try/catch, so a literal too large to fit an
+# int (like the one below) threw straight out of main() and aborted the
+# whole process instead of being reported as an ordinary parse error.
+func mast : int {
+  int a = 44444444444444421
+  return 0
+}

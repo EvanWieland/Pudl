@@ -1,0 +1,8 @@
+# Unary operators: `+` (no-op on a number) and `!` (boolean negation).
+func mast : int {
+  int x = +5
+  bool b = !(1 > 0)
+  print x
+  print b
+  return 0
+}

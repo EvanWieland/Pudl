@@ -1,5 +1,7 @@
 #include "Parser.h"
 
+#include <stdexcept>
+
 /**
 Converts string representation of type to TType
 \param aType String type
@@ -60,7 +62,16 @@ Node *Parser::parse(FILE *aFile) {
                 break;
             }
             default:
+                // next() is essential here, not cosmetic: without it,
+                // `current` never advances past the token that just failed
+                // to match any case above, so the next iteration of this
+                // while(1) sees the exact same token, hits `default:`
+                // again, and repeats forever -- an infinite loop calling
+                // error() (found by fuzzing: see fuzz/fuzz_pipeline.cpp)
+                // rather than a crash, which is why it never showed up as
+                // a golden-test failure.
                 error(t.getLine(), "unexpected token `" + t.getLexeme() + "`");
+                next();
                 break;
         }
     }
@@ -380,6 +391,13 @@ ExpressionNode *Parser::expression() {
 // lor := <land> (LOr <lor : int>)?
 ExpressionNode *Parser::lor() {
     ExpressionNode *lhs = land();
+    // A NULL lhs here means a deeper call already reported its own error
+    // (e.g. unary()'s "expression expected after `+`") -- propagate it
+    // rather than dereferencing it below. Found by fuzzing: an unchecked
+    // lhs->getType() on a NULL lhs is a null-pointer dereference (see
+    // fuzz/fuzz_pipeline.cpp), and every sibling precedence level
+    // (land/cmpeq/cmp/additive/multiplicative) had the same gap.
+    if (lhs == NULL) { return NULL; }
     // lexinfo(current.getLexeme(), current.getType());
     if (is(current, LOR, true)) {
         infoln("debug?: parsing <lor>");
@@ -408,6 +426,7 @@ ExpressionNode *Parser::lor() {
 // land := <cmpeq> (LAnd <land : int>)?
 ExpressionNode *Parser::land() {
     ExpressionNode *lhs = cmpeq();
+    if (lhs == NULL) { return NULL; }
     if (is(current, LAND, true)) {
         infoln("debug?: parsing <land>");
 
@@ -435,6 +454,7 @@ ExpressionNode *Parser::land() {
 // cmpeq := <cmp> (Eq <cmpeq>)?
 ExpressionNode *Parser::cmpeq() {
     ExpressionNode *lhs = cmp();
+    if (lhs == NULL) { return NULL; }
     // lexinfo(current.getLexeme(), current.getType());
     if (is(current, CMP_EQ, true)) {
         infoln("debug?: parsing <cmpeq>");
@@ -459,6 +479,7 @@ ExpressionNode *Parser::cmpeq() {
 // cmp := <add> (Cmp <cmp>)?
 ExpressionNode *Parser::cmp() {
     ExpressionNode *lhs = additive();
+    if (lhs == NULL) { return NULL; }
     // lexinfo(current.getLexeme(), current.getType());
     if (is(current, CMP, true)) {
         infoln("debug?: parsing <cmp>");
@@ -487,6 +508,7 @@ ExpressionNode *Parser::cmp() {
 // add := <mul> (Add <add>)?
 ExpressionNode *Parser::additive() {
     ExpressionNode *lhs = multiplicative();
+    if (lhs == NULL) { return NULL; }
     // lexinfo(current.getLexeme(), current.getType());
     if (is(current, ADD, true)) {
         infoln("debug?: parsing <add>");
@@ -520,6 +542,7 @@ ExpressionNode *Parser::additive() {
 // mul := <unary> (Mul <mul>)?
 ExpressionNode *Parser::multiplicative() {
     ExpressionNode *lhs = unary();
+    if (lhs == NULL) { return NULL; }
     // lexinfo(current.getLexeme(), current.getType());
     if (is(current, MUL, true)) {
         infoln("debug?: parsing <mul>");
@@ -704,16 +727,35 @@ BooleanNode *Parser::boolean() {
 // integer := Integer
 IntegerNode *Parser::intgr() {
     infoln("debug?: parsing <integer>");
+    Token t = current;
     std::string value = current.getLexeme();
     next();
-    return arena.construct<IntegerNode>(std::stoi(value));
+    // std::stoi throws std::out_of_range for a literal too large/small to
+    // fit an int (found by fuzzing: an uncaught exception here unwound
+    // straight out of main(), aborting the whole process instead of
+    // reporting a parse error) -- every other error path in this class
+    // reports via error() and returns nullptr, which the (now
+    // null-checked, see lor()/land()/etc.) precedence chain already knows
+    // how to propagate cleanly.
+    try {
+        return arena.construct<IntegerNode>(std::stoi(value));
+    } catch (const std::exception &) {
+        error(t.getLine(), "integer literal `" + value + "` is out of range");
+        return nullptr;
+    }
 }
 
 // float := Float
 FloatNode *Parser::flt() {
     infoln("debug?: parsing <float>");
+    Token t = current;
     std::string value = current.getLexeme();
     lexinfo(value);
     next();
-    return arena.construct<FloatNode>(std::stof(value));
+    try {
+        return arena.construct<FloatNode>(std::stof(value));
+    } catch (const std::exception &) {
+        error(t.getLine(), "float literal `" + value + "` is out of range");
+        return nullptr;
+    }
 }

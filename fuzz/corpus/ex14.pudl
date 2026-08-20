@@ -1,0 +1,15 @@
+# Parameter reassignment. Before this was fixed, assigning to a parameter
+# name silently created a new shadowing local instead of actually
+# reassigning the parameter (parameters and locals lived in two separate
+# symbol tables, and assignment only ever consulted the local one) -- `a`
+# read back afterward would still be the original, unmodified argument.
+# Correct output is 6 (5 + 1).
+func inc( int a ) : int {
+  a = a + 1
+  return a
+}
+
+func mast : int {
+  print inc(5)
+  return 0
+}
