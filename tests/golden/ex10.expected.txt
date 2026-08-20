@@ -9,3 +9,11 @@ Optimization: instruction combining,
 	 dead code elimination, 
 	 global value numbering, 
 	 simplify CFG
+
+Executing -----------------------
+
+-1
+-1
+0
+1
+1

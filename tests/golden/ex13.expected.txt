@@ -12,5 +12,4 @@ Optimization: instruction combining,
 
 Executing -----------------------
 
-999
 0

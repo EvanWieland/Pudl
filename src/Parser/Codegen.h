@@ -636,27 +636,48 @@ public:
         return NULL;
     }
 
-    Value *bilog(BinaryNode aNode) {
-        TType lhsTy = aNode.getLHS()->getType();
-        TType rhsTy = aNode.getRHS()->getType();
+    // &&/|| are short-circuit: the right-hand side must only be evaluated
+    // when it can actually affect the result (false && rhs must never
+    // evaluate rhs; true || rhs must never evaluate rhs). The eager
+    // "evaluate both sides, then combine" shape every other binary
+    // operator uses is wrong here -- this branches instead, the same way
+    // visit(IfStatementNode) does, threading the result through an alloca
+    // rather than a manually-built PHI node (mem2reg turns this into an
+    // SSA phi automatically when opt_promote_to_reg() is enabled, same as
+    // every other variable in this file).
+    Value *bilogShortCircuit(BinaryNode aNode) {
+        Function *func = funcs[currentFunc->getName()];
+        OperatorKind op = aNode.getOp();
 
         aNode.getLHS()->accept((*this));
-        if (!isSuccess) { return NULL; }
-        aNode.getRHS()->accept((*this));
-        if (!isSuccess) { return NULL; }
+        if (!isSuccess) { return nullptr; }
+        Value *lhsVal = pop();
 
-        Value *rhs = operands.top();
-        operands.pop();
-        Value *lhs = operands.top();
-        operands.pop();
+        Value *resultSlot = builder.CreateAlloca(builder.getInt1Ty(), nullptr, "shortCircuitResult");
+        builder.CreateStore(lhsVal, resultSlot);
 
-        OperatorKind op = aNode.getOp();
+        BasicBlock *rhsBb = BasicBlock::Create(getGlobalContext(), "ShortCircuitRhs", func);
+        BasicBlock *mergeBb = BasicBlock::Create(getGlobalContext(), "ShortCircuitMerge");
+
         if (op == OperatorKind::And) {
-            return builder.CreateAnd(lhs, rhs);
-        } else if (op == OperatorKind::Or) {
-            return builder.CreateOr(lhs, rhs);
+            // lhs && rhs: rhs only matters (and must only run) if lhs is true.
+            builder.CreateCondBr(lhsVal, rhsBb, mergeBb);
+        } else {
+            // lhs || rhs: rhs only matters (and must only run) if lhs is false.
+            builder.CreateCondBr(lhsVal, mergeBb, rhsBb);
         }
-        return NULL;
+
+        builder.SetInsertPoint(rhsBb);
+        aNode.getRHS()->accept((*this));
+        if (!isSuccess) { return nullptr; }
+        Value *rhsVal = pop();
+        builder.CreateStore(rhsVal, resultSlot);
+        builder.CreateBr(mergeBb);
+
+        mergeBb->insertInto(func);
+        builder.SetInsertPoint(mergeBb);
+
+        return builder.CreateLoad(builder.getInt1Ty(), resultSlot, "shortCircuitValue");
     }
 
     /**
@@ -690,7 +711,7 @@ public:
             }
             operands.push(res);
         } else if (op == OperatorKind::And || op == OperatorKind::Or) {
-            Value *res = bilog(aNode);
+            Value *res = bilogShortCircuit(aNode);
             if (res == NULL) {
                 if (isSuccess) { error("unknown error"); }
                 return;
@@ -888,8 +909,20 @@ public:
     void visit(WhileStatementNode aNode) {
         Function *func = funcs[currentFunc->getName()];
 
+        // thenBb must be attached to func immediately (3-arg Create), not
+        // left detached until after the loop body has already been
+        // generated into it: any IRBuilder call that needs to know the
+        // block's containing module (e.g. CreateLoad, for alignment/
+        // datalayout) dereferences a null Function* and segfaults the
+        // moment the block has no parent yet. This is exactly what made
+        // examples/ex9.pudl crash the compiler -- confirmed via gdb
+        // backtrace, not guessed: the crash was in
+        // IRBuilderBase::CreateAlignedLoad -> BasicBlock::getModule()
+        // while generating the loop body's first statement. The
+        // equivalent visit(IfStatementNode) path already gets this right
+        // for its own "Then" block.
         BasicBlock *loopBb = BasicBlock::Create(getGlobalContext(), "Loop", func);
-        BasicBlock *thenBb = BasicBlock::Create(getGlobalContext(), "Then");
+        BasicBlock *thenBb = BasicBlock::Create(getGlobalContext(), "Then", func);
         BasicBlock *afterBb = BasicBlock::Create(getGlobalContext(), "After");
 
         builder.CreateBr(loopBb);
@@ -902,10 +935,8 @@ public:
         builder.CreateCondBr(cond, thenBb, afterBb);
         builder.SetInsertPoint(thenBb);
         aNode.getBody()->accept((*this));
+        if (!isSuccess) { return; }
         builder.CreateBr(loopBb);
-
-        thenBb->insertInto(func);
-        thenBb = builder.GetInsertBlock();
 
         afterBb->insertInto(func);
         builder.SetInsertPoint(afterBb);

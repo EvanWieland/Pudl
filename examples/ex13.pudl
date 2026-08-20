@@ -1,8 +1,8 @@
-# KNOWN BROKEN -- see tests/KNOWN_BROKEN.md. `&&`/`||` are not
-# short-circuit: Codegen.h always evaluates both operands eagerly before
-# combining them, so sideEffect() below gets called (and prints) even
-# though `False && ...` should never need to evaluate its right-hand side.
-# Correct output would be just "0" (sideEffect never called).
+# Short-circuit evaluation: `&&`/`||` must not evaluate their right-hand
+# side when the left-hand side already determines the result.
+# sideEffect() has an observable side effect (print) -- it must never be
+# called here, since `False && ...` can never be true regardless of its
+# right-hand side. Correct output is just "0".
 func sideEffect( int x ) : bool {
   print 999
   return True
