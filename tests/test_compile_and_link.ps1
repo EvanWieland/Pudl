@@ -16,10 +16,18 @@ try {
     $outExe = Join-Path $RepoRoot "pudl_test_compile_and_link_exe.exe"
     Remove-Item -Path $outExe, "temp.o", "TempLinker.cpp" -ErrorAction SilentlyContinue
 
-    & $Bin examples/main.pudl -o "pudl_test_compile_and_link_exe" *> $null
+    # See run_golden_tests.ps1's Invoke-Pudl for why this goes through
+    # cmd.exe rather than PowerShell's own `&`-plus-redirection -- also
+    # means we actually get to see what went wrong below, instead of
+    # silently discarding it.
+    $quoted = @($Bin, "examples/main.pudl", "-o", "pudl_test_compile_and_link_exe") | ForEach-Object { '"' + $_ + '"' }
+    $cmdLine = $quoted -join ' '
+    $buildOutput = (cmd /c "$cmdLine 2>&1") -join "`n"
 
     if (-not (Test-Path $outExe)) {
         Write-Host "FAIL: -o did not produce a runnable executable"
+        Write-Host "--- pudl output ---"
+        Write-Host $buildOutput
         Remove-Item -Path $outExe, "temp.o", "TempLinker.cpp" -ErrorAction SilentlyContinue
         exit 1
     }
