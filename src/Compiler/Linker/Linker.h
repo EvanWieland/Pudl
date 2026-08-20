@@ -8,7 +8,6 @@
 
 #include "../Process.h"
 
-#define LinkerCmd "clang++-13"
 #define LinkerProgram "TempLinker.cpp"
 
 class Linker {
@@ -26,6 +25,18 @@ private:
     )";
 
 public:
+    /**
+     * Best-effort detection of an available clang++-family compiler/linker
+     * driver on PATH. This used to be a hardcoded "clang++-13", which broke
+     * the moment the installed LLVM's version number didn't match.
+     */
+    static std::string DetectDefault() {
+        return Process::Detect({
+                "clang++", "clang++-18", "clang++-19", "clang++-20",
+                "clang++-17", "c++", "g++"
+        });
+    }
+
     static int Link(const char *inPath, const char *outPath, const char *linker) {
         // save raw program to file for linking
         std::ofstream out(LinkerProgram);

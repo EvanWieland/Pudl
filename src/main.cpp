@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     if (cli.hasOption("-o") || cli.hasOption("--output")) {
         if (linker.empty()) {
             std::cout << "No linker was specified for linker step." << std::endl;
-            linker = LinkerCmd;
+            linker = Linker::DetectDefault();
         }
 
         std::cout << "Using linker: " << linker << std::endl;
@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
                     } else {
                         if (linker.empty()) {
                             std::cout << "No linker was specified for linker step." << std::endl;
-                            linker = LinkerCmd;
+                            linker = Linker::DetectDefault();
                         }
 
                         std::cout << "Using linker: " << linker << std::endl;

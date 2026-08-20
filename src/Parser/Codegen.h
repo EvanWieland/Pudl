@@ -227,8 +227,14 @@ public:
 
         std::cout << "Executing -----------------------" << std::endl << std::endl;
 
-        // Run lli output file
-        Process::Run({"lli", irOutput});
+        // Run lli output file. LLVM distributes lli under a
+        // version-suffixed name (lli-18, ...) with no reliable unversioned
+        // alias, so hardcoding "lli" breaks the moment the installed LLVM's
+        // version differs -- detect what's actually available instead.
+        static const std::string lliCmd = Process::Detect({
+                "lli", "lli-18", "lli-19", "lli-20", "lli-17"
+        });
+        Process::Run({lliCmd, irOutput});
 
         // remove irOutput file and check for errors
         if (remove(irOutput.c_str()) != 0) {
@@ -327,7 +333,15 @@ public:
         auto Features = "";
 
         TargetOptions opt;
-        auto RM = std::optional<Reloc::Model>();
+        // Leaving this as std::nullopt lets the TargetMachine pick its own
+        // default, which is not necessarily position-independent -- linking
+        // a non-PIC object with a modern PIE-by-default linker driver (e.g.
+        // current clang++/ld defaults on most Linux distros) fails with
+        // "relocation R_X86_64_32 against .rodata can not be used when
+        // making a PIE object". Pudl always emits a full standalone
+        // executable's worth of code (no shared-library use case), so PIC
+        // is simply the safe, always-linkable choice.
+        auto RM = std::optional<Reloc::Model>(Reloc::PIC_);
         auto TheTargetMachine =
                 Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 

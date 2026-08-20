@@ -22,7 +22,24 @@ public:
     /**
      * @param args argv for the child process; args[0] is the program to run
      *             (searched on PATH if it isn't a path itself).
+     * @param silent if true, the child's stdout/stderr are redirected to
+     *               the null device instead of inherited -- for probing
+     *               whether a program can be launched at all (see Detect())
+     *               without leaking its actual output into ours.
      * @return the child's exit code, or -1 if it could not be started.
      */
-    static int Run(const std::vector<std::string> &args);
+    static int Run(const std::vector<std::string> &args, bool silent = false);
+
+    /**
+     * Finds the first name in `candidates` that can actually be launched
+     * (probed via Run({name, probeArg}) != -1). Useful for tools LLVM
+     * distributes under a version-suffixed name (lli-18, clang++-18, ...)
+     * with no reliable "unversioned" alias -- hardcoding one specific
+     * version breaks the moment the installed LLVM's version differs.
+     *
+     * @return the first working candidate, or candidates[0] if none could
+     *         be launched (so callers still get a plausible name to report
+     *         in their own error output rather than an empty string).
+     */
+    static std::string Detect(const std::vector<std::string> &candidates, const std::string &probeArg = "--version");
 };
