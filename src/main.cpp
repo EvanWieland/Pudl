@@ -26,6 +26,13 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    cli.warnUnknownOptions({
+            "--help", "-h", "--version", "-v", "-p", "--print-ir",
+            "-c", "--compile", "-o", "--output", "-l", "--linker",
+            "-d", "--debug",
+            "-O0", "-ONone", "-O1", "-O2", "-O3", "-O4", "-O5", "-O6", "-Oall"
+    });
+
     bool isSourceFile = false;
     bool compile = false;
     bool link = false;
@@ -35,6 +42,9 @@ int main(int argc, char *argv[]) {
     if (argc < 2 || cli.hasOption("--help") || cli.hasOption("-h")) {
         std::string help = R"(
         ./pudl.sh <file> [--help,-h] [--version,-v] [-p,--print-ir <out file>] [-c,--compile <out file>] [-o, --output <out file>] [-O<N>] [-l,--linker <linker>]
+
+        Every option taking a value accepts either "-o value" or "-o=value"
+        (equivalently "--output value" / "--output=value").
 
         Options:
         <file>                The file to run.
