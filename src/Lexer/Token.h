@@ -10,7 +10,7 @@ enum TokenType {
     INTEGER, FLOAT, BOOL,
 
     ADD, MUL,
-    LAND, LOR, LXOR, NOT,
+    LAND, LOR, NOT,
     ASSIGN,
     CMP, CMP_EQ,
 
@@ -18,7 +18,7 @@ enum TokenType {
     IF, ELSE,
     DO, WHILE,
     RETURN,
-    IO_PRINT, IO_READ,
+    IO_PRINT,
 
     PL, PR, BL, BR,
     COMMA, SEMICOLON, COLON,

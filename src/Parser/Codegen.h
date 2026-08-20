@@ -655,8 +655,6 @@ public:
             return builder.CreateAnd(lhs, rhs);
         } else if (op == "||") {
             return builder.CreateOr(lhs, rhs);
-        } else if (op == "^") {
-            return builder.CreateXor(lhs, rhs);
         }
         return NULL;
     }
@@ -691,7 +689,7 @@ public:
                 return;
             }
             operands.push(res);
-        } else if (op == "&&" || op == "||" || op == "^") {
+        } else if (op == "&&" || op == "||") {
             Value *res = bilog(aNode);
             if (res == NULL) {
                 if (isSuccess) { error("unknown error"); }

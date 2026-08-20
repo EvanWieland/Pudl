@@ -38,7 +38,6 @@ Token Lexer::identifierOrKeyword(char aBegin) {
     if (lexeme == "False") type = BOOL;
     if (lexeme == "True") type = BOOL;
     if (lexeme == "print") type = IO_PRINT;
-    if (lexeme == "read") type = IO_READ;
 
     return Token(type, lexeme, line, col - lexeme.size());
 }

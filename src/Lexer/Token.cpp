@@ -38,8 +38,6 @@ std::string Token::showType(TokenType aType) {
             return "And";
         case LOR:
             return "Or";
-        case LXOR:
-            return "Xor";
         case ADD:
             return "Add";
         case MUL:
@@ -64,8 +62,6 @@ std::string Token::showType(TokenType aType) {
             return "Return";
         case IO_PRINT:
             return "Print";
-        case IO_READ:
-            return "Read";
         case PL:
             return "Open Parenthesis";
         case PR:
